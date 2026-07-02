@@ -78,7 +78,13 @@ __GSV__
   nav .logo { font-weight:800; font-size:1.25rem; color:var(--violet); margin-right:auto; }
   nav a { color:var(--sub); text-decoration:none; font-size:.95rem; }
   nav a:hover { color:var(--ink); }
-  .hero { text-align:center; padding:90px 6vw 60px; }
+  .hero { text-align:center; padding:70px 6vw 60px; }
+  .wordmark { font-size:clamp(4.2rem,13vw,8rem); font-weight:900; letter-spacing:-3px;
+      background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF); background-size:300% 300%;
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      animation:shimmer 6s ease infinite, breathe 2.6s ease-in-out infinite; display:inline-block; }
+  @keyframes shimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
   .hero h1 { font-size:clamp(2.4rem,6vw,4rem); font-weight:700; letter-spacing:-1px; }
   .hero h1 span { color:var(--violet); }
   .hero p { max-width:620px; margin:20px auto 0; font-size:1.2rem; color:var(--sub); }
@@ -119,6 +125,7 @@ __GSV__
   <a href="#features">Features</a><a href="#how">How it works</a><a href="#download">Download</a><a href="#contact">Contact</a>
 </nav>
 <div class="hero">
+  <div class="wordmark">SoNex</div>
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
   <h1>The volume that <span>listens back</span>.</h1>
   <p>When someone starts talking, SoNex quietly turns your TV and phone down.
