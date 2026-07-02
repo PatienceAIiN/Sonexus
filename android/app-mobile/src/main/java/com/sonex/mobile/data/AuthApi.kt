@@ -50,9 +50,15 @@ object AuthApi {
                         val body = conn.errorStream?.use { it.readBytes().decodeToString() } ?: ""
                         val detail = runCatching { json.decodeFromString(Error.serializer(), body).detail }
                             .getOrDefault("")
-                        Result.Failure(detail.ifBlank { "Server error ($code)" })
+                        Result.Failure(detail.ifBlank { friendlyAuth(code) })
                     }
                 } finally { conn.disconnect() }
-            }.getOrElse { Result.Failure("Can't reach server: ${it.message}") }
+            }.getOrElse { Result.Failure(ServerSync.friendlyNetwork(it)) }
         }
+
+    private fun friendlyAuth(code: Int): String = when (code) {
+        401 -> "Wrong email or password"
+        409 -> "An account with this email already exists — try signing in"
+        else -> ServerSync.friendlyHttp(code)
+    }
 }

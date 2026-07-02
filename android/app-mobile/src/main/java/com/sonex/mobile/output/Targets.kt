@@ -10,13 +10,20 @@ import com.sonex.core.VolumePolicy
 import com.sonex.mobile.pairing.PairingClient
 
 /**
- * Phone speaker (or wired headphones): direct STREAM_MUSIC control.
- * Inactive while media routes to Bluetooth — BluetoothTarget owns it then.
+ * Phone speaker: direct STREAM_MUSIC control. Inactive while media routes to
+ * Bluetooth or wired headphones — those targets own the stream then, so the
+ * same volume never gets ducked twice.
  */
 class PhoneSpeakerTarget(private val audio: AudioManager) : OutputTarget {
     override val id = "phone"
     override val name = "Phone speaker"
-    override val isActive: Boolean get() = !audio.isBluetoothA2dpOn
+    override val isActive: Boolean
+        get() = !audio.isBluetoothA2dpOn &&
+            audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).none {
+                it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+            }
     private val policy = VolumePolicy(audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
 
     override suspend fun send(cmd: Command) {
@@ -38,6 +45,32 @@ class BluetoothTarget(private val audio: AudioManager) : OutputTarget {
     override val id = "bt"
     override val name = "Bluetooth"
     override val isActive: Boolean get() = audio.isBluetoothA2dpOn
+    private val policy = VolumePolicy(audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+
+    override suspend fun send(cmd: Command) {
+        when (cmd.action) {
+            Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
+            Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
+            else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
+                ?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+        }
+    }
+}
+
+/**
+ * Wired earphones/headphones (3.5mm or USB-C). When someone in the room talks
+ * — or the wearer does — media in the ears ducks just like a speaker would, so
+ * conversations don't compete with what only one person can hear.
+ */
+class WiredHeadsetTarget(private val audio: AudioManager) : OutputTarget {
+    override val id = "wired"
+    override val name = "Earphones"
+    override val isActive: Boolean
+        get() = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+            it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+            it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+        }
     private val policy = VolumePolicy(audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
 
     override suspend fun send(cmd: Command) {

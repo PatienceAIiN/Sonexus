@@ -20,6 +20,7 @@ import com.sonex.mobile.output.CastTarget
 import com.sonex.mobile.output.OutputRouter
 import com.sonex.mobile.output.PhoneSpeakerTarget
 import com.sonex.mobile.output.TvTarget
+import com.sonex.mobile.output.WiredHeadsetTarget
 import com.sonex.mobile.pairing.PairingClient
 import com.sonex.mobile.voice.VoiceController
 import com.sonex.mobile.voice.VoskTranscriptSource
@@ -52,6 +53,7 @@ class ListeningService : Service() {
 
     companion object {
         const val CHANNEL = "sonex_listening"
+        const val WAKE_CHANNEL = "sonex_wake"
         val stateFlow = kotlinx.coroutines.flow.MutableStateFlow(RoomState.QUIET to -60.0)
 
         /** Manual device controls from the UI: (targetId, command). "all" broadcasts. */
@@ -79,6 +81,7 @@ class ListeningService : Service() {
         ).apply {
             register(PhoneSpeakerTarget(audio))
             register(BluetoothTarget(audio))
+            register(WiredHeadsetTarget(audio))
             register(TvTarget(pairing!!))
             register(CastTarget(this@ListeningService))
         }
@@ -135,10 +138,13 @@ class ListeningService : Service() {
         val controller = VoiceController(
             onWake = {
                 wakeActive.value = true
+                playWakeTone()
+                showWakeNotification()
                 disarm?.cancel()
                 disarm = scope.launch {
                     kotlinx.coroutines.delay(8_000) // mirrors WakeWordGate's window
                     wakeActive.value = false
+                    (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(2)
                 }
             }
         ) { intent ->
@@ -179,6 +185,34 @@ class ListeningService : Service() {
             stateFlow.value = RoomState.QUIET to stateFlow.value.second
             scope.launch { router.onState(RoomState.QUIET) }
         } // else: the engine will restore once the room actually goes quiet.
+    }
+
+    /** Short acknowledge chirp, like "OK Google". */
+    private fun playWakeTone() {
+        runCatching {
+            val tone = android.media.ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85)
+            tone.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 180)
+            scope.launch { kotlinx.coroutines.delay(400); runCatching { tone.release() } }
+        }
+    }
+
+    /** Heads-up "listening" cue that works even when the app isn't open. */
+    private fun showWakeNotification() {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (nm.getNotificationChannel(WAKE_CHANNEL) == null) {
+            nm.createNotificationChannel(
+                NotificationChannel(WAKE_CHANNEL, "SoNex wake word", NotificationManager.IMPORTANCE_HIGH)
+                    .apply { setSound(null, null) } // we already chirped
+            )
+        }
+        nm.notify(2, NotificationCompat.Builder(this, WAKE_CHANNEL)
+            .setContentTitle("🎙 SoNex is listening…")
+            .setContentText("Say a command — \"lower volume\", \"stop\", \"awaaz kam karo\"")
+            .setSmallIcon(R.drawable.ic_mic)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setTimeoutAfter(8_000)
+            .setAutoCancel(true)
+            .build())
     }
 
     private fun buildNotification(state: RoomState): Notification {

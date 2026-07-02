@@ -9,7 +9,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -96,15 +98,19 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.scale(scale)
             )
-            Text(
-                "Volume that listens to the room",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Spacer(Modifier.height(40.dp))
 
             AnimatedVisibility(true, enter = fadeIn() + slideInVertically { it / 3 }) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Swipe left/right anywhere on the form to flip Sign in <-> Sign up.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures { _, dragAmount ->
+                            if (dragAmount < -40f) { isSignup = true; error = null }
+                            if (dragAmount > 40f) { isSignup = false; error = null }
+                        }
+                    }
+                ) {
                     TabRow(selectedTabIndex = if (isSignup) 1 else 0) {
                         Tab(!isSignup, onClick = { isSignup = false; error = null }, text = { Text("Sign in") })
                         Tab(isSignup, onClick = { isSignup = true; error = null }, text = { Text("Sign up") })
@@ -142,6 +148,13 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 }
             }
         }
+        Text(
+            "a product of Patience AI · patienceai.in",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 18.dp)
+        )
     }
 }
 

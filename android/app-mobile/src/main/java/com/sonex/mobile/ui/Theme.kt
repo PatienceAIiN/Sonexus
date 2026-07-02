@@ -9,6 +9,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,8 +52,15 @@ val SonexType = Typography(
 
 @Composable
 fun SonexTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
     val ctx = LocalContext.current
+    // Live theme switching: Settings writes Prefs.themeState, we recompose.
+    val override by com.sonex.mobile.data.Prefs.themeState.collectAsState()
+    val mode = override ?: com.sonex.mobile.data.Prefs.themeMode(ctx)
+    val dark = when (mode) {
+        "dark" -> true
+        "light" -> false
+        else -> isSystemInDarkTheme() // auto-adjust to the system
+    }
     val scheme = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)

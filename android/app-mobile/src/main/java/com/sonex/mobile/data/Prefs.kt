@@ -10,9 +10,30 @@ import kotlinx.serialization.json.Json
 /** Simple SharedPreferences-backed store. All data-sharing consents default OFF. */
 object Prefs {
     private const val FILE = "sonex_prefs"
+    private const val SECURE_FILE = "sonex_secure"
     private val json = Json { ignoreUnknownKeys = true }
 
     private fun sp(c: Context) = c.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+
+    /** Hardware-backed encryption for credentials; plain prefs if Keystore is broken. */
+    private fun secure(c: Context) = runCatching {
+        val key = androidx.security.crypto.MasterKey.Builder(c)
+            .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
+        androidx.security.crypto.EncryptedSharedPreferences.create(
+            c, SECURE_FILE, key,
+            androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }.getOrElse { sp(c) }
+
+    // ---- Theme (system | dark | light), observable for live switching ----
+    val themeState = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    fun themeMode(c: Context): String = sp(c).getString("theme_mode", "system") ?: "system"
+    fun setThemeMode(c: Context, v: String) {
+        sp(c).edit().putString("theme_mode", v).apply()
+        themeState.value = v
+    }
 
     fun isLoggedIn(c: Context) = sp(c).getBoolean("logged_in", false)
     fun setLoggedIn(c: Context, v: Boolean) = sp(c).edit().putBoolean("logged_in", v).apply()
@@ -96,14 +117,27 @@ object Prefs {
         sp(c).getString("server_url", DEFAULT_SERVER)?.ifBlank { null }
     fun setServerUrl(c: Context, v: String?) = sp(c).edit().putString("server_url", v).apply()
 
-    fun deviceKey(c: Context): String? = sp(c).getString("device_key", null)
-    fun setDeviceKey(c: Context, v: String) = sp(c).edit().putString("device_key", v).apply()
+    fun deviceKey(c: Context): String? = secure(c).getString("device_key", null)
+    fun setDeviceKey(c: Context, v: String) = secure(c).edit().putString("device_key", v).apply()
 
-    fun deviceId(c: Context): String? = sp(c).getString("device_id", null)
-    fun setDeviceId(c: Context, v: String) = sp(c).edit().putString("device_id", v).apply()
+    fun deviceId(c: Context): String? = secure(c).getString("device_id", null)
+    fun setDeviceId(c: Context, v: String) = secure(c).edit().putString("device_id", v).apply()
 
-    fun authToken(c: Context): String? = sp(c).getString("auth_token", null)
-    fun setAuthToken(c: Context, v: String?) = sp(c).edit().putString("auth_token", v).apply()
+    fun authToken(c: Context): String? = secure(c).getString("auth_token", null)
+    fun setAuthToken(c: Context, v: String?) = secure(c).edit().putString("auth_token", v).apply()
+
+    /** Sign out: drop credentials + session, keep calibration/pairing/consents. */
+    fun logout(c: Context) {
+        secure(c).edit().remove("auth_token").apply()
+        setLoggedIn(c, false)
+    }
+
+    // ---- UX ----
+    fun hapticsEnabled(c: Context) = sp(c).getBoolean("haptics", true)
+    fun setHapticsEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("haptics", v).apply()
+
+    /** Keep my data on device only (true) or allow server storage (false). */
+    fun storeOnDeviceOnly(c: Context) = !sp(c).getBoolean("c_store_server", false)
 
     // Consents — all false by default (privacy by default).
     fun consentUploadClips(c: Context) = sp(c).getBoolean("c_upload", false)

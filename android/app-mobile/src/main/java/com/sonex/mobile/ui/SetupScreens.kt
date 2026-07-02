@@ -6,6 +6,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.sonex.mobile.audio.Calibration
 import com.sonex.mobile.audio.Calibrator
 import com.sonex.mobile.data.Prefs
+import com.sonex.mobile.data.ServerSync
+import com.sonex.mobile.data.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,13 +125,32 @@ private fun StepPrompt(title: String, body: String, progress: Float, onNext: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: () -> Unit) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    fun buzz() {
+        if (Prefs.hapticsEnabled(ctx))
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+    }
+    fun toast(msg: String) =
+        android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+
+    /** Flip a consent locally, then confirm the server sync in a toast. */
+    fun syncedConsent(prefKey: String, value: Boolean) {
+        buzz()
+        Prefs.setConsent(ctx, prefKey, value)
+        scope.launch { toast(ServerSync.syncConsent(ctx, prefKey, value).message) }
+    }
+
     var duck by remember { mutableStateOf(Prefs.duckLevel(ctx).toFloat()) }
     var upload by remember { mutableStateOf(Prefs.consentUploadClips(ctx)) }
     var telemetry by remember { mutableStateOf(Prefs.consentTelemetry(ctx)) }
     var training by remember { mutableStateOf(Prefs.consentTraining(ctx)) }
     var wake by remember { mutableStateOf(Prefs.consentWakeWord(ctx)) }
+    var onDevice by remember { mutableStateOf(Prefs.storeOnDeviceOnly(ctx)) }
+    var hapticsOn by remember { mutableStateOf(Prefs.hapticsEnabled(ctx)) }
+    var theme by remember { mutableStateOf(Prefs.themeMode(ctx)) }
 
     Scaffold(
         topBar = {
@@ -131,47 +163,99 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit) {
         }
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(20.dp).verticalScroll(rememberScrollState())) {
-            Text("Response", style = MaterialTheme.typography.titleMedium)
+
+            SectionHeader(Icons.Filled.GraphicEq, "Response")
             Text("Lower volume to ${duck.toInt()}% when someone talks")
             Slider(duck, { duck = it; Prefs.setDuckLevel(ctx, it.toInt()) }, valueRange = 10f..80f)
 
-            Spacer(Modifier.height(20.dp))
-            Text("Privacy & consent", style = MaterialTheme.typography.titleMedium)
+            SectionHeader(Icons.Filled.Palette, "Appearance")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
+                    FilterChip(
+                        selected = theme == mode,
+                        onClick = { buzz(); theme = mode; Prefs.setThemeMode(ctx, mode); toast("Theme: $label ✓") },
+                        label = { Text(label) },
+                        leadingIcon = {
+                            Icon(
+                                when (mode) {
+                                    "light" -> Icons.Filled.LightMode
+                                    "dark" -> Icons.Filled.DarkMode
+                                    else -> Icons.Filled.BrightnessAuto
+                                }, null, Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
+            }
+            ConsentRow("Haptic feedback", hapticsOn) {
+                hapticsOn = it; Prefs.setHapticsEnabled(ctx, it); buzz(); toast(if (it) "Haptics on ✓" else "Haptics off ✓")
+            }
+
+            SectionHeader(Icons.Filled.Shield, "Privacy & consent")
             Text(
                 "All audio is processed on your device. Nothing leaves your phone unless you turn it on below.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
-            ConsentRow("Upload clips to improve detection", upload) { upload = it; Prefs.setConsent(ctx, "c_upload", it) }
-            ConsentRow("Share anonymous usage stats", telemetry) { telemetry = it; Prefs.setConsent(ctx, "c_telemetry", it) }
-            ConsentRow("Let SoNex learn my home", training) { training = it; Prefs.setConsent(ctx, "c_training", it) }
-            ConsentRow("Wake word \"SoNex\" always listening", wake) { wake = it; Prefs.setConsent(ctx, "c_wakeword", it) }
+            ConsentRow("Keep all my data on this device only", onDevice) {
+                onDevice = it
+                syncedConsent("c_store_server", !it)
+            }
+            ConsentRow("Upload clips to improve detection", upload) { upload = it; syncedConsent("c_upload", it) }
+            ConsentRow("Share anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
+            ConsentRow("Let SoNex learn my home", training) { training = it; syncedConsent("c_training", it) }
+            ConsentRow("Wake word \"SoNex\" always listening", wake) { wake = it; syncedConsent("c_wakeword", it) }
 
-            Spacer(Modifier.height(20.dp))
-            Text("When someone talks, each device should…", style = MaterialTheme.typography.titleMedium)
-            listOf("tv" to "SoNex TV", "bt" to "Bluetooth", "cast" to "Cast").forEach { (id, label) ->
-                TargetRuleRow(label, Prefs.targetRule(ctx, id)) { Prefs.setTargetRule(ctx, id, it) }
+            SectionHeader(Icons.Filled.Speaker, "When someone talks, each device should…")
+            listOf(
+                "tv" to "SoNex TV", "bt" to "Bluetooth",
+                "wired" to "Earphones", "cast" to "Cast"
+            ).forEach { (id, label) ->
+                TargetRuleRow(label, Prefs.targetRule(ctx, id)) { buzz(); Prefs.setTargetRule(ctx, id, it) }
             }
 
-            Spacer(Modifier.height(20.dp))
-            Text("SoNex server (optional)", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "For model updates and, with consent, contributing data. Leave empty to stay fully offline.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            var server by remember { mutableStateOf(Prefs.serverUrl(ctx) ?: "") }
-            OutlinedTextField(
-                server, { server = it; Prefs.setServerUrl(ctx, it.trim().ifBlank { null }) },
-                label = { Text("Server URL") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            )
+            SectionHeader(Icons.Filled.SystemUpdate, "App")
+            UpdateCheckRow(onToast = ::toast)
 
-            Spacer(Modifier.height(20.dp))
+            SectionHeader(Icons.Filled.AccountCircle, "Account")
+            var confirmLogout by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { buzz(); confirmLogout = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Log out")
+            }
+            if (confirmLogout) {
+                AlertDialog(
+                    onDismissRequest = { confirmLogout = false },
+                    title = { Text("Log out?") },
+                    text = { Text("You'll need to sign in again. Your calibration, pairing and settings stay on this phone.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            confirmLogout = false
+                            Prefs.logout(ctx)
+                            toast("Logged out ✓")
+                            onLoggedOut()
+                        }) { Text("Log out") }
+                    },
+                    dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancel") } }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
             var confirmDelete by remember { mutableStateOf(false) }
-            // With no server configured, deleting local data IS deleting all data.
-            OutlinedButton(onClick = { confirmDelete = true }) { Text("Delete all my data") }
+            OutlinedButton(
+                onClick = { buzz(); confirmDelete = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.Filled.DeleteForever, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Delete all my data")
+            }
             if (confirmDelete) {
                 AlertDialog(
                     onDismissRequest = { confirmDelete = false },
@@ -184,12 +268,102 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit) {
                             onDataDeleted()
                         }) { Text("Delete") }
                     },
-                    dismissButton = {
-                        TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
-                    }
+                    dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
                 )
             }
+
+            Spacer(Modifier.height(28.dp))
+            Text(
+                "a product of Patience AI · patienceai.in",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String) {
+    Spacer(Modifier.height(22.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(8.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium)
+    }
+    Spacer(Modifier.height(8.dp))
+}
+
+/** "Check for update" -> popup: fetching -> versions for phone & TV -> install. */
+@Composable
+private fun UpdateCheckRow(onToast: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var open by remember { mutableStateOf(false) }
+    var releases by remember { mutableStateOf<Map<String, UpdateChecker.Release>?>(null) }
+    var fetching by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<Float?>(null) }
+
+    OutlinedButton(onClick = {
+        open = true; fetching = true; releases = null
+        scope.launch { releases = UpdateChecker.fetch(ctx); fetching = false }
+    }, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Filled.SystemUpdate, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Check for updates")
+    }
+
+    if (open) {
+        val installed = UpdateChecker.installedVersionCode(ctx)
+        val mobile = releases?.get("mobile")
+        val newer = mobile != null && mobile.version_code > installed
+        AlertDialog(
+            onDismissRequest = { if (progress == null) open = false },
+            title = { Text("App updates") },
+            text = {
+                Column {
+                    when {
+                        fetching -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(20.dp)); Spacer(Modifier.width(12.dp))
+                            Text("Fetching latest versions…")
+                        }
+                        releases == null -> Text("Couldn't reach the update server. Check your connection and try again.")
+                        else -> {
+                            Text(
+                                if (newer) "📱 Phone: v${mobile!!.version_name} available (you have v$installed)"
+                                else "📱 Phone: you're up to date (v$installed)"
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            releases?.get("tv")?.let {
+                                Text("📺 TV: latest is v${it.version_name} — update from the SoNex TV app or sonexus.onrender.com")
+                            }
+                            progress?.let {
+                                Spacer(Modifier.height(12.dp))
+                                LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth())
+                                Text("Downloading… ${(it * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (newer && progress == null) {
+                    TextButton(onClick = {
+                        progress = 0f
+                        scope.launch {
+                            val err = UpdateChecker.downloadAndInstall(ctx, mobile!!) { p -> progress = p }
+                            progress = null
+                            if (err != null) onToast(err) else open = false
+                        }
+                    }) { Text("Update now") }
+                }
+            },
+            dismissButton = {
+                if (progress == null) TextButton(onClick = { open = false }) { Text("Close") }
+            }
+        )
     }
 }
 

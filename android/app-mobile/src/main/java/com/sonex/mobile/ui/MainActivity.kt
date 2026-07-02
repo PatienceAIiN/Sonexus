@@ -56,7 +56,8 @@ class MainActivity : ComponentActivity() {
                     Screen.CALIBRATE -> CalibrateScreen(onDone = { screen = Screen.HOME })
                     Screen.SETTINGS -> SettingsScreen(
                         onBack = { screen = Screen.HOME },
-                        onDataDeleted = { screen = Screen.LOGIN }
+                        onDataDeleted = { screen = Screen.LOGIN },
+                        onLoggedOut = { screen = Screen.LOGIN }
                     )
                 }
             }
