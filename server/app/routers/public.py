@@ -75,24 +75,22 @@ __GSV__
   nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:28px;
         padding:14px 6vw; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
         border-bottom:1px solid var(--line); }
-  nav .logo { font-weight:900; font-size:clamp(2.2rem,4vw,2.8rem); letter-spacing:-1.5px; margin-right:auto;
+  nav .logo { font-weight:900; font-size:1.5rem; letter-spacing:-.5px; margin-right:auto;
       background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF); background-size:300% 300%;
       -webkit-background-clip:text; background-clip:text; color:transparent;
       animation:shimmer 6s ease infinite, breathe 2.6s ease-in-out infinite; display:inline-block; }
   @keyframes shimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
   nav a { color:var(--sub); text-decoration:none; font-size:.95rem; }
   nav a:hover { color:var(--ink); }
   .hero { text-align:center; padding:70px 6vw 60px; }
-  .rotator { min-height:5.2rem; display:flex; align-items:center; justify-content:center; }
-  .rotator span { font-size:clamp(1.9rem,5.5vw,3.4rem); font-weight:800; letter-spacing:-1px;
+  .rotator { min-height:7rem; display:flex; align-items:center; justify-content:center; padding:0 4vw; }
+  .rotator span { font-size:clamp(2rem,6.5vw,3.8rem); font-weight:800; letter-spacing:-1.5px; line-height:1.15;
       background:linear-gradient(120deg,#7C4DFF,#2DD4BF); -webkit-background-clip:text;
       background-clip:text; color:transparent; opacity:0; transform:translateY(18px);
       transition:opacity .9s ease, transform .9s ease; }
   .rotator span.show { opacity:1; transform:translateY(0); }
-  .hero h1 { font-size:clamp(2.4rem,6vw,4rem); font-weight:700; letter-spacing:-1px; }
-  .hero h1 span { color:var(--violet); }
-  .hero p { max-width:620px; margin:20px auto 0; font-size:1.2rem; color:var(--sub); }
+  .hero .sub { margin-top:10px; font-size:1.05rem; color:var(--sub); }
   .bars { display:flex; gap:5px; align-items:flex-end; height:40px; justify-content:center; margin:28px 0 4px; }
   .bars i { width:7px; border-radius:4px; background:var(--violet); animation:eq 1.2s ease-in-out infinite; }
   .bars i:nth-child(2){animation-delay:.15s; background:var(--teal);} .bars i:nth-child(3){animation-delay:.3s;}
@@ -124,17 +122,25 @@ __GSV__
            gap:14px; align-items:center; justify-content:space-between; color:var(--sub); font-size:.92rem; }
   footer .links { display:flex; gap:22px; } footer a { color:var(--sub); text-decoration:none; }
   footer a:hover { color:var(--violet); }
+  @media (max-width:640px) {
+    nav { gap:16px; padding:12px 5vw; }
+    nav a { font-size:.85rem; }
+    .hero { padding:44px 5vw 40px; }
+    .rotator { min-height:5.4rem; }
+    section { padding:44px 5vw; }
+    .cta { flex-direction:column; align-items:stretch; }
+    .btn { justify-content:center; }
+    footer { flex-direction:column; text-align:center; }
+  }
 </style></head><body>
 <nav>
   <span class="logo">SoNex</span>
   <a href="#features">Features</a><a href="#how">How it works</a><a href="#download">Download</a><a href="#contact">Contact</a>
 </nav>
 <div class="hero">
-  <div class="rotator" id="rotator"><span class="show">Someone talks. The TV gets quiet.</span></div>
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
-  <h1>The volume that <span>listens back</span>.</h1>
-  <p>When someone starts talking, SoNex quietly turns your TV and phone down.
-     When the room settles, your volume comes right back. No remotes, no shushing.</p>
+  <div class="rotator" id="rotator"><span class="show">The volume that listens back.</span></div>
+  <p class="sub">On-device AI · Private by default</p>
   <div class="cta" id="download">
     <a class="btn primary" href="/download/mobile">__ANDROID__ Download for Android</a>
     <a class="btn secondary" href="/download/tv">__ANDROID__ Get the TV app</a>
@@ -176,12 +182,12 @@ __GSV__
 </footer>
 <script>
 const LINES = [
-  "Someone talks. The TV gets quiet.",
-  "The room settles. Your volume returns.",
-  "The blender roars. SoNex turns it up.",
-  "\u201CSoNex, awaaz kam karo.\u201D Done.",
-  "A call comes in. Everything ducks.",
-  "No remotes. No shushing. Just SoNex."
+  "The volume that listens back.",
+  "Someone talks. TV goes quiet.",
+  "Room settles. Volume returns.",
+  "Blender roars. SoNex turns it up.",
+  "\u201CSoNex, awaaz kam karo.\u201D",
+  "No remotes. No shushing."
 ];
 (function(){
   const box=document.getElementById('rotator'), el=box.querySelector('span');

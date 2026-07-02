@@ -188,12 +188,12 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
         Column(Modifier.fillMaxSize().padding(pad).padding(20.dp).verticalScroll(rememberScrollState())) {
 
             SectionHeader(Icons.Filled.GraphicEq, "Response")
-            Text("Lower volume to ${duck.toInt()}% when someone talks")
+            Text("Duck to ${duck.toInt()}% when someone talks")
             Slider(duck, { duck = it; Prefs.setDuckLevel(ctx, it.toInt()) }, valueRange = 10f..80f)
 
             SectionHeader(Icons.Filled.SquareFoot, "Room size")
             Text(
-                "Tell SoNex how big the room is — bigger rooms get higher sensitivity so talk from across the hall still registers.",
+                "Bigger rooms get higher sensitivity.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -259,21 +259,21 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
 
             SectionHeader(Icons.Filled.Shield, "Privacy & consent")
             Text(
-                "All audio is processed on your device. Nothing leaves your phone unless you turn it on below.",
+                "Audio never leaves your phone unless you turn these on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
-            ConsentRow("Keep all my data on this device only", onDevice) {
+            ConsentRow("Keep my data on this device", onDevice) {
                 onDevice = it
                 syncedConsent("c_store_server", !it)
             }
-            ConsentRow("Upload clips to improve detection", upload) { upload = it; syncedConsent("c_upload", it) }
-            ConsentRow("Share anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
+            ConsentRow("Upload clips to improve SoNex", upload) { upload = it; syncedConsent("c_upload", it) }
+            ConsentRow("Anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
             ConsentRow("Let SoNex learn my home", training) { training = it; syncedConsent("c_training", it) }
-            ConsentRow("Wake word \"SoNex\" always listening", wake) { wake = it; syncedConsent("c_wakeword", it) }
+            ConsentRow("\"SoNex\" wake word", wake) { wake = it; syncedConsent("c_wakeword", it) }
 
-            SectionHeader(Icons.Filled.Speaker, "When someone talks, each device should…")
+            SectionHeader(Icons.Filled.Speaker, "Devices")
             listOf(
                 "tv" to "SoNex TV", "bt" to "Bluetooth",
                 "wired" to "Earphones", "cast" to "Cast"
@@ -282,13 +282,17 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             }
 
             SectionHeader(Icons.Filled.SystemUpdate, "App")
-            UpdateCheckRow(onToast = ::toast)
-            Spacer(Modifier.height(12.dp))
             var showFeedback by remember { mutableStateOf(false) }
-            OutlinedButton(onClick = { buzz(); showFeedback = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Feedback, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Send feedback")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f)) { UpdateCheckRow(onToast = ::toast) }
+                OutlinedButton(
+                    onClick = { buzz(); showFeedback = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.Feedback, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Feedback")
+                }
             }
             if (showFeedback) {
                 FeedbackDialog(onDismiss = { showFeedback = false }, onToast = ::toast)
@@ -323,7 +327,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("Log out")
             }
             if (confirmLogout) {
@@ -351,8 +355,8 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Icon(Icons.Filled.DeleteForever, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Delete all my data")
+                Spacer(Modifier.width(6.dp))
+                Text("Delete my data")
             }
             if (confirmDelete) {
                 AlertDialog(
@@ -459,7 +463,7 @@ private fun UpdateCheckRow(onToast: (String) -> Unit) {
     }, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.SystemUpdate, null, Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Check for updates")
+        Text("Updates")
     }
 
     if (open) {

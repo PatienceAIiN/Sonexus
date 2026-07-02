@@ -114,32 +114,37 @@ fun HomeScreen(
             )
             Spacer(Modifier.height(20.dp))
 
-            // Master switch: only the user starts or stops SoNex.
-            Button(
-                onClick = {
-                    if (listening) {
-                        Prefs.setListeningEnabled(ctx, false)
-                        ctx.stopService(android.content.Intent(ctx, ListeningService::class.java))
-                    } else {
-                        Prefs.setListeningEnabled(ctx, true)
-                        onEnsureMic()
-                    }
-                },
-                modifier = Modifier.height(52.dp),
-                colors = if (listening) ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                ) else ButtonDefaults.buttonColors()
-            ) {
-                Icon(
-                    if (listening) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                    null, Modifier.size(22.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(if (listening) "Stop listening" else "Start listening")
+            // Master switch (user-only) + calibration, one tidy row.
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = {
+                        if (listening) {
+                            Prefs.setListeningEnabled(ctx, false)
+                            ctx.stopService(android.content.Intent(ctx, ListeningService::class.java))
+                        } else {
+                            Prefs.setListeningEnabled(ctx, true)
+                            onEnsureMic()
+                        }
+                    },
+                    modifier = Modifier.height(48.dp),
+                    colors = if (listening) ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ) else ButtonDefaults.buttonColors()
+                ) {
+                    Icon(
+                        if (listening) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                        null, Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (listening) "Stop" else "Start")
+                }
+                FilledTonalButton(onClick = onCalibrate, modifier = Modifier.height(48.dp)) {
+                    Icon(Icons.Filled.Tune, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Calibrate")
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            FilledTonalButton(onClick = onCalibrate) { Text("Re-run calibration") }
 
             // ---- Wake word: animated "listening" banner + Stop ----
             val wakeActive by ListeningService.wakeActive.collectAsState()

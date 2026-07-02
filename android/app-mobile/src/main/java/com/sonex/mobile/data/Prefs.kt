@@ -29,7 +29,7 @@ object Prefs {
     // ---- Theme (system | dark | light), observable for live switching ----
     val themeState = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
-    fun themeMode(c: Context): String = sp(c).getString("theme_mode", "system") ?: "system"
+    fun themeMode(c: Context): String = sp(c).getString("theme_mode", "light") ?: "light"
     fun setThemeMode(c: Context, v: String) {
         sp(c).edit().putString("theme_mode", v).apply()
         themeState.value = v
@@ -129,10 +129,15 @@ object Prefs {
     fun authToken(c: Context): String? = secure(c).getString("auth_token", null)
     fun setAuthToken(c: Context, v: String?) = secure(c).edit().putString("auth_token", v).apply()
 
-    /** Sign out: drop credentials + session, keep calibration/pairing/consents. */
+    /**
+     * Sign out: drop credentials + session, keep calibration/pairing/consents.
+     * Also stops listening — the mic stays off until the user presses Start.
+     */
     fun logout(c: Context) {
         secure(c).edit().remove("auth_token").apply()
         setLoggedIn(c, false)
+        setListeningEnabled(c, false)
+        c.stopService(android.content.Intent(c, com.sonex.mobile.audio.ListeningService::class.java))
     }
 
     // ---- Room geometry (metres) — tunes sensitivity/coverage ----
@@ -161,6 +166,10 @@ object Prefs {
     fun consentWakeWord(c: Context) = sp(c).getBoolean("c_wakeword", false)
     fun setConsent(c: Context, key: String, v: Boolean) = sp(c).edit().putBoolean(key, v).apply()
 
-    /** "Delete all my data": wipes account, pairing, calibration, consents. */
-    fun clearAll(c: Context) = sp(c).edit().clear().apply()
+    /** "Delete all my data": wipes account, pairing, calibration, consents — and stops the mic. */
+    fun clearAll(c: Context) {
+        c.stopService(android.content.Intent(c, com.sonex.mobile.audio.ListeningService::class.java))
+        sp(c).edit().clear().apply()
+        secure(c).edit().clear().apply()
+    }
 }
