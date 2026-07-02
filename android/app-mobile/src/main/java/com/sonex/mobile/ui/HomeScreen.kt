@@ -80,7 +80,6 @@ fun HomeScreen(
             TopAppBar(
                 title = { },
                 actions = {
-                    IconButton(onClick = onCalibrate) { Icon(Icons.Filled.Tune, "Calibrate") }
                     IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings") }
                 }
             )
