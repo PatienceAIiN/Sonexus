@@ -75,16 +75,21 @@ __GSV__
   nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:28px;
         padding:14px 6vw; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
         border-bottom:1px solid var(--line); }
-  nav .logo { font-weight:800; font-size:1.25rem; color:var(--violet); margin-right:auto; }
-  nav a { color:var(--sub); text-decoration:none; font-size:.95rem; }
-  nav a:hover { color:var(--ink); }
-  .hero { text-align:center; padding:70px 6vw 60px; }
-  .wordmark { font-size:clamp(4.2rem,13vw,8rem); font-weight:900; letter-spacing:-3px;
+  nav .logo { font-weight:900; font-size:clamp(2.2rem,4vw,2.8rem); letter-spacing:-1.5px; margin-right:auto;
       background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF); background-size:300% 300%;
       -webkit-background-clip:text; background-clip:text; color:transparent;
       animation:shimmer 6s ease infinite, breathe 2.6s ease-in-out infinite; display:inline-block; }
   @keyframes shimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
+  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.09)} }
+  nav a { color:var(--sub); text-decoration:none; font-size:.95rem; }
+  nav a:hover { color:var(--ink); }
+  .hero { text-align:center; padding:70px 6vw 60px; }
+  .rotator { min-height:5.2rem; display:flex; align-items:center; justify-content:center; }
+  .rotator span { font-size:clamp(1.9rem,5.5vw,3.4rem); font-weight:800; letter-spacing:-1px;
+      background:linear-gradient(120deg,#7C4DFF,#2DD4BF); -webkit-background-clip:text;
+      background-clip:text; color:transparent; opacity:0; transform:translateY(18px);
+      transition:opacity .9s ease, transform .9s ease; }
+  .rotator span.show { opacity:1; transform:translateY(0); }
   .hero h1 { font-size:clamp(2.4rem,6vw,4rem); font-weight:700; letter-spacing:-1px; }
   .hero h1 span { color:var(--violet); }
   .hero p { max-width:620px; margin:20px auto 0; font-size:1.2rem; color:var(--sub); }
@@ -125,7 +130,7 @@ __GSV__
   <a href="#features">Features</a><a href="#how">How it works</a><a href="#download">Download</a><a href="#contact">Contact</a>
 </nav>
 <div class="hero">
-  <div class="wordmark">SoNex</div>
+  <div class="rotator" id="rotator"><span class="show">Someone talks. The TV gets quiet.</span></div>
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
   <h1>The volume that <span>listens back</span>.</h1>
   <p>When someone starts talking, SoNex quietly turns your TV and phone down.
@@ -170,6 +175,25 @@ __GSV__
   <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="#contact">Contact</a></div>
 </footer>
 <script>
+const LINES = [
+  "Someone talks. The TV gets quiet.",
+  "The room settles. Your volume returns.",
+  "The blender roars. SoNex turns it up.",
+  "\u201CSoNex, awaaz kam karo.\u201D Done.",
+  "A call comes in. Everything ducks.",
+  "No remotes. No shushing. Just SoNex."
+];
+(function(){
+  const box=document.getElementById('rotator'), el=box.querySelector('span');
+  let i=0, paused=false;
+  box.addEventListener('mouseenter',()=>paused=true);
+  box.addEventListener('mouseleave',()=>paused=false);
+  setInterval(()=>{
+    if(paused) return;
+    el.classList.remove('show');
+    setTimeout(()=>{ i=(i+1)%LINES.length; el.textContent=LINES[i]; el.classList.add('show'); }, 900);
+  }, 4500);
+})();
 async function sendContact(e){
   e.preventDefault();
   const f=e.target, s=document.getElementById('contact-status');
