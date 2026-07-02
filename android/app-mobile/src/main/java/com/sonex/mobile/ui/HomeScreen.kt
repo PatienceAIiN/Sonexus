@@ -207,15 +207,28 @@ fun HomeScreen(
             // ---- Devices: everything SoNex is controlling right now ----
             Spacer(Modifier.height(28.dp))
             val audio = remember { ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-            var refresh by remember { mutableStateOf(0) }
-            LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); refresh++ } }
+            // Probe BT/Cast on a background thread (Cast is binder IPC) and only
+            // touch compose state when something actually changed — zero churn.
+            val routes by produceState(initialValue = false to false) {
+                while (true) {
+                    val bt = audio.isBluetoothA2dpOn
+                    val cast = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching {
+                            com.google.android.gms.cast.framework.CastContext.getSharedInstance(ctx)
+                                .sessionManager.currentCastSession?.isConnected == true
+                        }.getOrDefault(false)
+                    }
+                    if (value != bt to cast) value = bt to cast
+                    kotlinx.coroutines.delay(3000)
+                }
+            }
 
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Text("Devices", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
 
-                key(refresh) {
-                    val btOn = audio.isBluetoothA2dpOn
+                run {
+                    val (btOn, castOn) = routes
                     DeviceRow(
                         id = "phone", name = "Phone speaker",
                         status = if (btOn) "Idle (audio on Bluetooth)" else "Active", scope = scope
@@ -224,12 +237,6 @@ fun HomeScreen(
                         id = "bt", name = "Bluetooth",
                         status = if (btOn) "Connected · active" else "Not connected", scope = scope
                     )
-                    val castOn = remember(refresh) {
-                        runCatching {
-                            com.google.android.gms.cast.framework.CastContext.getSharedInstance(ctx)
-                                .sessionManager.currentCastSession?.isConnected == true
-                        }.getOrDefault(false)
-                    }
                     DeviceRow(
                         id = "cast", name = "Cast",
                         status = if (castOn) "Session active" else "No session", scope = scope

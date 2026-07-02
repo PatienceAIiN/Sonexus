@@ -4,6 +4,8 @@ import com.sonex.core.Command
 import com.sonex.core.RoomState
 import com.sonex.core.RulePolicy
 import com.sonex.core.TargetRule
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Phase 7: every audio output SoNex can steer — phone speaker, paired TV,
@@ -37,16 +39,18 @@ class OutputRouter(
 
     fun activeTargets(): List<OutputTarget> = targets.filter { it.isActive }
 
-    /** Room state changed: each active target gets its rule-specific command. */
-    suspend fun onState(state: RoomState) {
+    /** Room state changed: every active target reacts AT THE SAME TIME —
+     *  a fading phone ramp must never delay the TV command. */
+    suspend fun onState(state: RoomState) = coroutineScope {
         for (t in activeTargets()) {
-            RulePolicy.commandFor(state, ruleFor(t.id), duckPercent(), boostPercent())
-                ?.let { t.send(it) }
+            val cmd = RulePolicy.commandFor(state, ruleFor(t.id), duckPercent(), boostPercent())
+                ?: continue
+            launch { runCatching { t.send(cmd) } }
         }
     }
 
-    /** Voice commands apply verbatim to every active target. */
-    suspend fun broadcast(cmd: Command) {
-        for (t in activeTargets()) t.send(cmd)
+    /** Voice commands apply verbatim to every active target, concurrently. */
+    suspend fun broadcast(cmd: Command) = coroutineScope {
+        for (t in activeTargets()) launch { runCatching { t.send(cmd) } }
     }
 }

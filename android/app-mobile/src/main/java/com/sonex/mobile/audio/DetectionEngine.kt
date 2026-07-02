@@ -72,6 +72,7 @@ class DetectionEngine(
     }
 
     private fun loop() {
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
         val buf = ShortArray(FRAME_SAMPLES)
         while (running) {
             val n = record?.read(buf, 0, FRAME_SAMPLES) ?: break
