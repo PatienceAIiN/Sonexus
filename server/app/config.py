@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -5,6 +6,16 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://sonex:sonex@localhost:5432/sonex"
+
+    @field_validator("database_url")
+    @classmethod
+    def _force_asyncpg(cls, v: str) -> str:
+        # Render/Heroku hand out postgres:// URLs; SQLAlchemy async needs the
+        # asyncpg driver scheme. Accept either and normalise.
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+asyncpg://" + v[len(prefix):]
+        return v
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str = "change-me"
