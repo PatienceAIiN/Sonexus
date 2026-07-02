@@ -76,3 +76,23 @@ async def test_admin_dashboard_gated(client, monkeypatch):
     assert stats.status_code == 200
     body = stats.json()
     assert {"counts", "health", "models", "metrics", "uptime_sec"} <= body.keys()
+
+
+async def test_admin_table_crud(client, db, monkeypatch):
+    from app.config import settings
+    from .conftest import create_user
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    await create_user(db, "crud@sonex.test", "longenough8")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+
+    rows = (await client.get("/admin/api/table/users")).json()["rows"]
+    assert rows and "password_hash" not in rows[0]
+    uid = rows[0]["id"]
+
+    upd = await client.put(f"/admin/api/table/users/{uid}", json={"email": "renamed@sonex.test"})
+    assert upd.status_code == 200 and upd.json()["email"] == "renamed@sonex.test"
+
+    assert (await client.delete(f"/admin/api/table/users/{uid}")).status_code == 200
+    assert uid not in [r["id"] for r in (await client.get("/admin/api/table/users")).json()["rows"]]
+    assert (await client.get("/admin/api/table/nope")).status_code == 404

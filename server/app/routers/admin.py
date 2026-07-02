@@ -59,6 +59,60 @@ async def admin_login(body: AdminLoginIn):
     return resp
 
 
+TABLES = {"users": User, "homes": Home, "devices": Device, "events": Event,
+          "clips": Clip, "models": Model, "metrics": Metric}
+HIDDEN_COLS = {"password_hash", "api_key_hash"}
+
+
+def _row_dict(obj) -> dict:
+    return {c.name: (str(v) if v is not None and not isinstance(v, (int, float, bool)) else v)
+            for c in obj.__table__.columns
+            if c.name not in HIDDEN_COLS
+            for v in [getattr(obj, c.name)]}
+
+
+@router.get("/admin/api/table/{table}", dependencies=[Depends(require_admin)])
+async def table_rows(table: str, db: AsyncSession = Depends(get_db)):
+    model = TABLES.get(table)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Unknown table")
+    rows = (await db.execute(select(model).order_by(model.id.desc()).limit(200))).scalars().all()
+    return {"table": table, "rows": [_row_dict(r) for r in rows]}
+
+
+@router.delete("/admin/api/table/{table}/{row_id}", dependencies=[Depends(require_admin)])
+async def table_delete(table: str, row_id: int, db: AsyncSession = Depends(get_db)):
+    model = TABLES.get(table)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Unknown table")
+    obj = await db.get(model, row_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Row not found")
+    await db.delete(obj)
+    await db.commit()
+    from .. import cache
+    cache.invalidate("admin:")
+    return {"deleted": row_id}
+
+
+@router.put("/admin/api/table/{table}/{row_id}", dependencies=[Depends(require_admin)])
+async def table_update(table: str, row_id: int, patch: dict, db: AsyncSession = Depends(get_db)):
+    model = TABLES.get(table)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Unknown table")
+    obj = await db.get(model, row_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Row not found")
+    cols = {c.name for c in model.__table__.columns} - HIDDEN_COLS - {"id"}
+    for k, v in patch.items():
+        if k in cols:
+            setattr(obj, k, v)
+    await db.commit()
+    from .. import cache
+    cache.invalidate("admin:")
+    return _row_dict(obj)
+
+
 @router.get("/admin/api/stats", dependencies=[Depends(require_admin)])
 async def admin_stats(db: AsyncSession = Depends(get_db)):
     from .. import cache
@@ -124,10 +178,24 @@ DASH = """<!doctype html><html><head><meta charset="utf-8">
  button{padding:11px;border-radius:8px;border:0;background:#7C4DFF;color:#fff;font-weight:700;cursor:pointer}
  #err{color:#d93025;min-height:1.2em;font-size:.85rem}
  svg{width:100%;height:70px} .muted{color:#5f6368;font-size:.8rem}
+ .card{cursor:pointer;transition:box-shadow .15s} .card:hover{box-shadow:0 4px 16px rgba(32,33,36,.12)}
+ #modal{display:none;position:fixed;inset:0;background:rgba(32,33,36,.45);z-index:20;
+   align-items:center;justify-content:center;padding:4vw}
+ #modal .box{background:#fff;border-radius:14px;max-width:940px;width:100%;max-height:82vh;
+   overflow:auto;padding:20px;box-shadow:0 18px 60px rgba(0,0,0,.25)}
+ #modal h3{margin:0 0 12px;color:#7C4DFF;text-transform:capitalize}
+ .rowbtn{padding:4px 10px;border-radius:6px;border:1px solid #dadce0;background:#fff;
+   color:#5f6368;cursor:pointer;font-size:.78rem;margin-right:4px}
+ .rowbtn.del{color:#d93025;border-color:#f5c6c0}
+ .close{float:right;background:#f1f3f4;color:#202124}
 </style></head><body>
 <div id="login"><h1>SoNex Admin</h1>
  <input id="u" placeholder="Username" value="admin"><input id="p" type="password" placeholder="Password">
  <button onclick="login()">Sign in</button><div id="err"></div></div>
+<div id="modal" onclick="if(event.target===this)closeModal()"><div class="box">
+ <button class="rowbtn close" onclick="closeModal()">✕ Close</button>
+ <h3 id="mtitle"></h3><div id="mbody" style="overflow:auto"></div>
+</div></div>
 <div id="dash" style="display:none">
  <h1>SoNex system health <span class="muted" id="uptime"></span></h1>
  <div class="grid" id="counts"></div>
@@ -149,7 +217,7 @@ async function refresh(){
  login_.style.display='none';dash.style.display='block';
  uptime.textContent='· up '+Math.floor(s.uptime_sec/60)+' min';
  const c=s.counts;
- counts.innerHTML=Object.entries(c).map(([k,v])=>`<div class="card"><b>${v}</b><span>${k}</span></div>`).join('')
+ counts.innerHTML=Object.entries(c).map(([k,v])=>`<div class="card" onclick="openTable('${k}')"><b>${v}</b><span>${k}</span></div>`).join('')
   +`<div class="card"><b class="${s.health.db?'ok':'bad'}">${s.health.db?'✓':'✗'}</b><span>database</span></div>`
   +`<div class="card"><b class="${s.health.redis?'ok':'bad'}">${s.health.redis?'✓':'✗'}</b><span>redis</span></div>`;
  const rows=s.models.map(m=>`<tr><td>${m.id}</td><td>${m.home_id??'—'}</td><td>${m.kind}</td><td>${m.version}</td><td>${m.status}</td><td>${m.created_at.slice(0,19)}</td></tr>`).join('');
@@ -162,6 +230,36 @@ async function refresh(){
   chart.innerHTML=`<path d="${path}" fill="none" stroke="#0d9488" stroke-width="2"/>`;
   chartlabel.textContent=`accuracy: latest ${(pts.at(-1).value*100).toFixed(1)}% · ${pts.length} points (auto-refreshes every 3s)`;
  } else { chartlabel.textContent='No metrics yet — they appear after the first training run.'; }
+}
+async function openTable(name){
+ const r=await fetch('/admin/api/table/'+name);
+ if(!r.ok){alert('Unavailable');return}
+ const d=await r.json();
+ mtitle.textContent=name+' ('+d.rows.length+')';
+ if(!d.rows.length){mbody.innerHTML='<p class="muted">No rows yet.</p>'}
+ else{
+  const cols=Object.keys(d.rows[0]);
+  mbody.innerHTML='<table><tr>'+cols.map(x=>'<th>'+x+'</th>').join('')+'<th></th></tr>'+
+   d.rows.map(row=>'<tr>'+cols.map(x=>'<td>'+String(row[x]??'—').slice(0,60)+'</td>').join('')+
+   `<td><button class="rowbtn" onclick='editRow("${name}",${row.id},${JSON.stringify(JSON.stringify(row))})'>Edit</button>`+
+   `<button class="rowbtn del" onclick="delRow('${name}',${row.id})">Delete</button></td></tr>`).join('')+'</table>';
+ }
+ modal.style.display='flex';
+}
+function closeModal(){modal.style.display='none'}
+async function delRow(name,id){
+ if(!confirm('Delete '+name+' #'+id+'? This cannot be undone.'))return;
+ const r=await fetch(`/admin/api/table/${name}/${id}`,{method:'DELETE'});
+ if(r.ok){openTable(name);refresh()}else{alert((await r.json()).detail||'Failed')}
+}
+async function editRow(name,id,rowJson){
+ const edited=prompt('Edit fields as JSON, then OK to save:',rowJson);
+ if(edited===null)return;
+ try{
+  const r=await fetch(`/admin/api/table/${name}/${id}`,{method:'PUT',
+   headers:{'Content-Type':'application/json'},body:edited});
+  if(r.ok){openTable(name);refresh()}else{alert((await r.json()).detail||'Rejected')}
+ }catch(_){alert('Invalid JSON')}
 }
 function start(){refresh();timer=setInterval(refresh,3000)}
 const login_=document.getElementById('login');
