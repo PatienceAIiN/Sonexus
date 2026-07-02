@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     contact_to_email: str = "info@patienceai.in"
     feedback_to_email: str = "growth@patienceai.in"
     google_site_verification: str = ""  # GOOGLE_SITE_VERIFICATION env var
+    site_url: str = ""  # e.g. https://sonex.patienceai.in — overrides host detection
 
     # Rate limiting (requests per window seconds, per device/user)
     rate_limit_requests: int = 120

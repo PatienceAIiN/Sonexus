@@ -7,7 +7,7 @@ Publishing a new build = upload new APK + bump releases.json. No redeploy.
 """
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
@@ -18,6 +18,15 @@ from ..storage import get_storage
 router = APIRouter(tags=["public"])
 
 RELEASES_KEY = "apk/releases.json"
+
+
+def _base(request: Request) -> str:
+    """Canonical origin for SEO links: SITE_URL env wins, else the host the
+    request actually arrived on (custom domain aware via the proxy header)."""
+    if settings.site_url:
+        return settings.site_url.rstrip("/")
+    host = request.headers.get("x-forwarded-host") or request.url.hostname or "sonex.patienceai.in"
+    return f"https://{host}"
 
 
 def _releases() -> dict:
@@ -58,12 +67,12 @@ LANDING = """<!doctype html>
 <title>SoNex — volume that listens to the room</title>
 <meta name="description" content="SoNex automatically lowers your TV and phone volume when someone talks, and restores it when the room is quiet.">
 __GSV__
-<link rel="canonical" href="https://sonexus.onrender.com/">
+<link rel="canonical" href="__BASE__/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E0B1A'/%3E%3Crect x='6' y='13' width='3.5' height='8' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='11.5' y='9' width='3.5' height='16' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='17' y='5' width='3.5' height='24' rx='1.7' fill='%232DD4BF'/%3E%3Crect x='22.5' y='11' width='3.5' height='12' rx='1.7' fill='%237C4DFF'/%3E%3C/svg%3E">
 <meta property="og:title" content="SoNex — volume that listens to the room">
 <meta property="og:description" content="Someone talks, your TV gets quiet. Room settles, volume comes back. On-device AI, private by default.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://sonexus.onrender.com/">
+<meta property="og:url" content="__BASE__/">
 <meta name="twitter:card" content="summary">
 <meta name="robots" content="index,follow">
 <style>
@@ -257,22 +266,22 @@ No marketing email without separate opt-in.</p>
 <h2>Contact</h2><p><a href="mailto:info@patienceai.in">info@patienceai.in</a> ·
 grievance officer to be announced (DPDP 2023).</p>"""
 @router.get("/", response_class=HTMLResponse)
-async def landing():
+async def landing(request: Request):
     gsv = (f'<meta name="google-site-verification" content="{settings.google_site_verification}">'
            if settings.google_site_verification else "")
-    return LANDING.replace("__GSV__", gsv)
+    return LANDING.replace("__GSV__", gsv).replace("__BASE__", _base(request))
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)
-async def robots():
-    return "User-agent: *\nAllow: /\nSitemap: https://sonexus.onrender.com/sitemap.xml\n"
+async def robots(request: Request):
+    return f"User-agent: *\nAllow: /\nSitemap: {_base(request)}/sitemap.xml\n"
 
 
 @router.get("/sitemap.xml")
-async def sitemap():
+async def sitemap(request: Request):
     from datetime import date
 
-    base = "https://sonexus.onrender.com"
+    base = _base(request)
     today = date.today().isoformat()
     pages = [("/", "weekly", "1.0"), ("/terms", "yearly", "0.3"), ("/privacy", "yearly", "0.3")]
     urls = "".join(
