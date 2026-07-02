@@ -163,3 +163,13 @@ class HysteresisTest {
             RoomStateMachine.classify(-34.0, true, -30.0, -27.0, inSpeechState = true))
     }
 }
+
+class RoomPresetTest {
+    @org.junit.Test fun presets_scale_sensitivity_with_size() {
+        val s = RoomProfile.Preset.entries.map { it.sensitivity }
+        org.junit.Assert.assertEquals("presets must be ordered small -> large", s.sorted(), s)
+        org.junit.Assert.assertTrue(RoomProfile.Preset.OPEN.sensitivity > RoomProfile.Preset.SMALL.sensitivity)
+        org.junit.Assert.assertEquals(0.53, RoomProfile.Preset.LIVING.sensitivity, 0.02)
+        org.junit.Assert.assertTrue(RoomProfile.Preset.HALL.restoreDelaySec > RoomProfile.Preset.SMALL.restoreDelaySec)
+    }
+}

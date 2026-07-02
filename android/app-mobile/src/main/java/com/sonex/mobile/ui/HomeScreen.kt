@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonex.core.Action
 import com.sonex.core.Command
 import com.sonex.core.RoomState
@@ -76,7 +77,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("SoNex") },
+                title = { SonexLogo(fontSize = 26.sp, breathe = false) },
                 actions = {
                     IconButton(onClick = onCalibrate) { Icon(Icons.Filled.Tune, "Calibrate") }
                     IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings") }
@@ -99,7 +100,7 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
             Text(
                 when {
-                    !listening -> "Paused — tap Start to listen"
+                    !listening -> "Ready"
                     state == RoomState.TALKING -> "Talking — volume lowered"
                     state == RoomState.BOOST -> "Loud room — volume raised"
                     else -> "Listening"

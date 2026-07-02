@@ -146,6 +146,12 @@ object Prefs {
     fun setRoomSize(c: Context, w: Float, l: Float) =
         sp(c).edit().putFloat("room_w", w).putFloat("room_l", l).apply()
 
+    fun roomPreset(c: Context): String? = sp(c).getString("room_preset", null)
+    fun setRoomPreset(c: Context, p: com.sonex.core.RoomProfile.Preset) {
+        sp(c).edit().putString("room_preset", p.name).apply()
+        setRoomSize(c, p.widthM.toFloat(), p.lengthM.toFloat())
+    }
+
     // ---- Master listening switch: OFF until the user presses Start, and it
     // never flips itself — only the Start/Stop button changes it. ----
     fun listeningEnabled(c: Context) = sp(c).getBoolean("listening_on", false)

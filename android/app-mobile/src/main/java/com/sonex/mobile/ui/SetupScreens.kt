@@ -2,6 +2,7 @@ package com.sonex.mobile.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -170,7 +171,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
     var upload by remember { mutableStateOf(Prefs.consentUploadClips(ctx)) }
     var telemetry by remember { mutableStateOf(Prefs.consentTelemetry(ctx)) }
     var training by remember { mutableStateOf(Prefs.consentTraining(ctx)) }
-    var wake by remember { mutableStateOf(Prefs.consentWakeWord(ctx)) }
     var onDevice by remember { mutableStateOf(Prefs.storeOnDeviceOnly(ctx)) }
     var hapticsOn by remember { mutableStateOf(Prefs.hapticsEnabled(ctx)) }
     var theme by remember { mutableStateOf(Prefs.themeMode(ctx)) }
@@ -198,40 +198,25 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
-            var roomW by remember { mutableStateOf(Prefs.roomWidth(ctx).takeIf { it > 0 }?.toString() ?: "") }
-            var roomL by remember { mutableStateOf(Prefs.roomLength(ctx).takeIf { it > 0 }?.toString() ?: "") }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    roomW, { roomW = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Width (m)") }, singleLine = true, modifier = Modifier.weight(1f),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
-                )
-                OutlinedTextField(
-                    roomL, { roomL = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Length (m)") }, singleLine = true, modifier = Modifier.weight(1f),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
-                )
-            }
-            val w = roomW.toFloatOrNull(); val l = roomL.toFloatOrNull()
-            if (w != null && l != null && w > 0 && l > 0) {
-                val sens = com.sonex.core.RoomProfile.sensitivityFor(w.toDouble(), l.toDouble())
-                Text(
-                    "Coverage sensitivity: ${(sens * 100).toInt()}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                TextButton(onClick = {
-                    buzz()
-                    Prefs.setRoomSize(ctx, w, l)
-                    val cal = Prefs.currentCalibration(ctx).copy(
-                        sensitivity = sens,
-                        restoreDelaySec = com.sonex.core.RoomProfile.restoreDelaySecFor(w.toDouble(), l.toDouble())
+            var roomPreset by remember { mutableStateOf(Prefs.roomPreset(ctx)) }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.sonex.core.RoomProfile.Preset.entries.forEach { preset ->
+                    FilterChip(
+                        selected = roomPreset == preset.name,
+                        onClick = {
+                            buzz()
+                            roomPreset = preset.name
+                            Prefs.setRoomPreset(ctx, preset)
+                            Prefs.saveCalibration(ctx, Prefs.currentCalibration(ctx).copy(
+                                sensitivity = preset.sensitivity,
+                                restoreDelaySec = preset.restoreDelaySec
+                            ))
+                            toast("${preset.label} ✓ sensitivity ${(preset.sensitivity * 100).toInt()}%")
+                        },
+                        label = { Text(preset.label) }
                     )
-                    Prefs.saveCalibration(ctx, cal)
-                    toast("Room saved — sensitivity adapted ✓")
-                }) { Text("Apply room size") }
+                }
             }
 
             SectionHeader(Icons.Filled.Palette, "Appearance")
@@ -271,7 +256,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             ConsentRow("Upload clips to improve SoNex", upload) { upload = it; syncedConsent("c_upload", it) }
             ConsentRow("Anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
             ConsentRow("Let SoNex learn my home", training) { training = it; syncedConsent("c_training", it) }
-            ConsentRow("\"SoNex\" wake word", wake) { wake = it; syncedConsent("c_wakeword", it) }
 
             SectionHeader(Icons.Filled.Speaker, "Devices")
             listOf(
@@ -480,7 +464,7 @@ private fun UpdateCheckRow(onToast: (String) -> Unit) {
                             CircularProgressIndicator(Modifier.size(20.dp)); Spacer(Modifier.width(12.dp))
                             Text("Fetching latest versions…")
                         }
-                        releases == null -> Text("Couldn't reach the update server. Check your connection and try again.")
+                        releases == null -> Text("Couldn't check right now. Make sure you're online and try again.")
                         else -> {
                             Text(
                                 if (newer) "📱 Phone: v${mobile!!.version_name} available (you have v$installed)"
@@ -488,7 +472,7 @@ private fun UpdateCheckRow(onToast: (String) -> Unit) {
                             )
                             Spacer(Modifier.height(6.dp))
                             releases?.get("tv")?.let {
-                                Text("📺 TV: latest is v${it.version_name} — update from the SoNex TV app or sonexus.onrender.com")
+                                Text("📺 TV: latest is v${it.version_name} — update from the SoNex TV app")
                             }
                             progress?.let {
                                 Spacer(Modifier.height(12.dp))

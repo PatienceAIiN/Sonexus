@@ -12,9 +12,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.sonex.mobile.data.UpdateChecker
 import com.sonex.mobile.audio.ListeningService
 import com.sonex.mobile.data.Prefs
+import kotlinx.coroutines.launch
 
 /** Single-activity Compose host. Simple enum-based navigation keeps Phase 1 lean. */
 class MainActivity : ComponentActivity() {
@@ -35,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     if (granted[Manifest.permission.RECORD_AUDIO] == true) startListening()
                 }
 
+                AutoUpdatePrompt()
                 when (screen) {
                     Screen.LOGIN -> LoginScreen(onLoggedIn = { screen = Screen.HOME })
                     Screen.PAIR -> PairScreen(
@@ -62,6 +81,55 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * On every launch: if a newer build is published, show an interactive
+     * Update/Not-now dialog. "Not now" hides it for this session only — it
+     * returns on next restart until the app is actually updated, after which
+     * the version check makes it disappear on its own.
+     */
+    @Composable
+    private fun AutoUpdatePrompt() {
+        val scope = rememberCoroutineScope()
+        var update by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+        var dismissed by remember { mutableStateOf(false) }
+        var progress by remember { mutableStateOf<Float?>(null) }
+
+        LaunchedEffect(Unit) {
+            val m = UpdateChecker.fetch(this@MainActivity)?.get("mobile") ?: return@LaunchedEffect
+            if (m.version_code > UpdateChecker.installedVersionCode(this@MainActivity)) update = m
+        }
+
+        val u = update ?: return
+        if (dismissed) return
+        AlertDialog(
+            onDismissRequest = { if (progress == null) dismissed = true },
+            icon = { Icon(Icons.Filled.SystemUpdate, null) },
+            title = { Text("Update available") },
+            text = {
+                Column {
+                    Text("SoNex v${u.version_name} is ready — new improvements and fixes.")
+                    progress?.let {
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth())
+                        Text("Downloading… ${(it * 100).toInt()}%")
+                    }
+                }
+            },
+            confirmButton = {
+                if (progress == null) TextButton(onClick = {
+                    progress = 0f
+                    scope.launch {
+                        UpdateChecker.downloadAndInstall(this@MainActivity, u) { p -> progress = p }
+                        progress = null
+                    }
+                }) { Text("Update") }
+            },
+            dismissButton = {
+                if (progress == null) TextButton(onClick = { dismissed = true }) { Text("Not now") }
+            }
+        )
     }
 
     private fun hasPermission(p: String) =

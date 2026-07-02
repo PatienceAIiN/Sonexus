@@ -133,9 +133,8 @@ class ListeningService : Service() {
         return if (vad != null || sound != null) MlClassifier(vad, sound, cal, fallback) else fallback
     }
 
-    /** Voice control only with the explicit always-listening consent ON. */
+    /** Voice control rides the same mic: active whenever listening is on. */
     private fun attachVoiceControl(engine: DetectionEngine) {
-        if (!Prefs.consentWakeWord(this)) return
         val models = VoskTranscriptSource.installedModels(filesDir)
         if (models.isEmpty()) return
         var disarm: kotlinx.coroutines.Job? = null

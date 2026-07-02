@@ -59,9 +59,9 @@ object ServerSync {
     suspend fun syncConsent(c: Context, prefKey: String, granted: Boolean): Status {
         val purpose = PURPOSES[prefKey] ?: return Status.Failed("Unknown setting")
         val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
-        if (base.isBlank()) return Status.Failed("Saved on device (no server)")
+        if (base.isBlank()) return Status.Failed("Saved on device")
         val key = ensureDevice(c, base)
-            ?: return Status.Failed("Saved on device — server unreachable")
+            ?: return Status.Failed("Saved on device — will sync when online")
         return withContext(Dispatchers.IO) {
             try {
                 val (code, _) = http(
@@ -69,7 +69,7 @@ object ServerSync {
                     json.encodeToString(ConsentIn.serializer(), ConsentIn(purpose, granted)),
                     mapOf("X-Device-Key" to key)
                 )
-                if (code in 200..299) Status.Ok("Synced with server ✓ (${if (granted) "ON" else "OFF"})")
+                if (code in 200..299) Status.Ok("Saved ✓ (${if (granted) "ON" else "OFF"})")
                 else Status.Failed(friendlyHttp(code))
             } catch (t: Throwable) {
                 Status.Failed(friendlyNetwork(t))
@@ -80,7 +80,7 @@ object ServerSync {
     /** In-app feedback -> growth team, with opt-in diagnostics (never audio). */
     suspend fun sendFeedback(c: Context, message: String, includeDiagnostics: Boolean): Status {
         val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
-        if (base.isBlank()) return Status.Failed("No server configured")
+        if (base.isBlank()) return Status.Failed("Not available offline")
         val diag = if (!includeDiagnostics) "null" else {
             val cal = Prefs.currentCalibration(c)
             val entries = mapOf(
@@ -130,17 +130,17 @@ object ServerSync {
 
     fun friendlyNetwork(t: Throwable): String = when (t) {
         is UnknownHostException -> "No internet connection"
-        is SocketTimeoutException -> "Server is waking up — try again in a moment"
-        else -> "Couldn't reach the SoNex server"
+        is SocketTimeoutException -> "Taking longer than usual — try again in a moment"
+        else -> "Can't connect — check your internet"
     }
 
     fun friendlyHttp(code: Int): String = when (code) {
         401 -> "Session expired — sign in again"
         403 -> "Not allowed — check your consents"
-        404 -> "Server doesn't support this yet"
+        404 -> "Not available yet"
         409 -> "Already exists"
-        422 -> "The server rejected that value"
-        in 500..599 -> "Server had a problem — try again"
+        422 -> "That value wasn't accepted"
+        in 500..599 -> "Something went wrong — try again"
         else -> "Something went wrong (code $code)"
     }
 }

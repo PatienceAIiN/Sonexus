@@ -261,11 +261,19 @@ async def robots():
 
 @router.get("/sitemap.xml")
 async def sitemap():
+    from datetime import date
+
     base = "https://sonexus.onrender.com"
-    urls = "".join(f"<url><loc>{base}{p}</loc></url>" for p in ["/", "/terms", "/privacy"])
-    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+    today = date.today().isoformat()
+    pages = [("/", "weekly", "1.0"), ("/terms", "yearly", "0.3"), ("/privacy", "yearly", "0.3")]
+    urls = "".join(
+        f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+        for path, freq, prio in pages
+    )
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
-    return Response(content=xml, media_type="application/xml")
+    return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "max-age=3600"})
 
 
 @router.get("/terms", response_class=HTMLResponse)

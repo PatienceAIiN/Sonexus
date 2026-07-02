@@ -100,6 +100,18 @@ object RoomProfile {
     const val STEP_PER_DOUBLING = 0.12
     val SENSITIVITY_RANGE = 0.30..0.85
 
+    /** Pick-a-room presets — nobody measures their hall with a tape. */
+    enum class Preset(val label: String, val widthM: Double, val lengthM: Double) {
+        SMALL("Small room", 3.0, 2.5),
+        BEDROOM("Bedroom", 3.5, 3.5),
+        LIVING("Living room", 4.0, 3.5),
+        HALL("Hall", 6.0, 5.0),
+        OPEN("Open space", 9.0, 7.0);
+
+        val sensitivity: Double get() = sensitivityFor(widthM, lengthM)
+        val restoreDelaySec: Int get() = restoreDelaySecFor(widthM, lengthM)
+    }
+
     fun sensitivityFor(widthM: Double, lengthM: Double): Double {
         val area = (widthM * lengthM).coerceAtLeast(1.0)
         val doublings = kotlin.math.ln(area / REFERENCE_AREA_M2) / kotlin.math.ln(2.0)

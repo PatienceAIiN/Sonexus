@@ -67,7 +67,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         error = AuthValidator.emailError(email) ?: AuthValidator.passwordError(password)
             ?: if (isSignup && confirm != password) "Passwords don't match" else null
         if (error != null) return
-        if (base.isBlank()) { error = "No server configured — set the server URL in Settings"; return }
+        if (base.isBlank()) { error = "Can't connect right now — try again"; return }
         working = true
         scope.launch {
             val res = if (isSignup) AuthApi.signup(base, email.trim(), password)
@@ -117,11 +117,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                "SoNex", fontSize = 56.sp, fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.scale(scale)
-            )
+            SonexLogo(fontSize = 56.sp)
             Spacer(Modifier.height(40.dp))
 
             AnimatedVisibility(true, enter = fadeIn() + slideInVertically { it / 3 }) {
