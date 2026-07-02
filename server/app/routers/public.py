@@ -8,7 +8,7 @@ Publishing a new build = upload new APK + bump releases.json. No redeploy.
 import json
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
 from ..config import settings
@@ -57,6 +57,15 @@ LANDING = """<!doctype html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoNex — volume that listens to the room</title>
 <meta name="description" content="SoNex automatically lowers your TV and phone volume when someone talks, and restores it when the room is quiet.">
+__GSV__
+<link rel="canonical" href="https://sonexus.onrender.com/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E0B1A'/%3E%3Crect x='6' y='13' width='3.5' height='8' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='11.5' y='9' width='3.5' height='16' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='17' y='5' width='3.5' height='24' rx='1.7' fill='%232DD4BF'/%3E%3Crect x='22.5' y='11' width='3.5' height='12' rx='1.7' fill='%237C4DFF'/%3E%3C/svg%3E">
+<meta property="og:title" content="SoNex — volume that listens to the room">
+<meta property="og:description" content="Someone talks, your TV gets quiet. Room settles, volume comes back. On-device AI, private by default.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sonexus.onrender.com/">
+<meta name="twitter:card" content="summary">
+<meta name="robots" content="index,follow">
 <style>
   :root { --violet:#7C4DFF; --teal:#0d9488; --ink:#202124; --sub:#5f6368; --line:#e8eaed; }
   * { margin:0; box-sizing:border-box; }
@@ -203,7 +212,23 @@ No marketing email without separate opt-in.</p>
 grievance officer to be announced (DPDP 2023).</p>"""
 @router.get("/", response_class=HTMLResponse)
 async def landing():
-    return LANDING
+    gsv = (f'<meta name="google-site-verification" content="{settings.google_site_verification}">'
+           if settings.google_site_verification else "")
+    return LANDING.replace("__GSV__", gsv)
+
+
+@router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots():
+    return "User-agent: *\nAllow: /\nSitemap: https://sonexus.onrender.com/sitemap.xml\n"
+
+
+@router.get("/sitemap.xml")
+async def sitemap():
+    base = "https://sonexus.onrender.com"
+    urls = "".join(f"<url><loc>{base}{p}</loc></url>" for p in ["/", "/terms", "/privacy"])
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
+    return Response(content=xml, media_type="application/xml")
 
 
 @router.get("/terms", response_class=HTMLResponse)
@@ -232,3 +257,27 @@ async def contact(body: ContactIn):
     if not sent:
         raise HTTPException(status_code=502, detail="Couldn't send right now — email info@patienceai.in")
     return {"detail": "Thanks! We'll get back to you."}
+
+
+class FeedbackIn(BaseModel):
+    email: str = ""
+    message: str
+    diagnostics: dict | None = None
+
+
+@router.post("/v1/feedback", status_code=202)
+async def feedback(body: FeedbackIn):
+    """In-app feedback -> growth team, with optional diagnostics the user
+    chose to attach (app version, calibration, consents — never audio)."""
+    if not body.message.strip() or len(body.message) > 4000:
+        raise HTTPException(status_code=422, detail="Message is empty or too long")
+    diag = ""
+    if body.diagnostics:
+        rows = "".join(f"<tr><td><b>{k}</b></td><td>{v}</td></tr>" for k, v in body.diagnostics.items())
+        diag = f"<h3>Diagnostics</h3><table border='1' cellpadding='6'>{rows}</table>"
+    html = (f"<p><b>From:</b> {body.email or 'anonymous'}</p>"
+            f"<p style='white-space:pre-wrap'>{body.message}</p>{diag}")
+    sent = await send_email(settings.feedback_to_email, "SoNex app feedback", html)
+    if not sent:
+        raise HTTPException(status_code=502, detail="Couldn't send right now — try again later")
+    return {"detail": "Thanks for the feedback!"}

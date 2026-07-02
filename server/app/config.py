@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     brevo_sender_email: str = "info@patienceai.in"
     brevo_sender_name: str = "SoNex"
     contact_to_email: str = "info@patienceai.in"
+    feedback_to_email: str = "growth@patienceai.in"
+    google_site_verification: str = ""  # GOOGLE_SITE_VERIFICATION env var
 
     # Rate limiting (requests per window seconds, per device/user)
     rate_limit_requests: int = 120

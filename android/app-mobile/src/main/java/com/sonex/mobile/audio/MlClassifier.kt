@@ -6,6 +6,8 @@ import ai.onnxruntime.OrtSession
 import android.util.Log
 import com.sonex.core.FrameKind
 import com.sonex.core.MlDecision
+import com.sonex.core.SpeechProbSmoother
+import com.sonex.core.ThresholdAdapter
 import org.tensorflow.lite.Interpreter
 import java.io.File
 import java.nio.FloatBuffer
@@ -35,13 +37,19 @@ class MlClassifier(
 
     private var broken = false
 
+    // Adaptive thresholds + smoothed VAD verdict with hangover (see :core).
+    private val adapter = ThresholdAdapter(
+        ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
+    )
+    private val smoother = SpeechProbSmoother()
+    private var vadSeen = false
+
     // ---- Silero VAD ----
     private var ort: OrtEnvironment? = null
     private var vad: OrtSession? = null
     private var vadState = Array(2) { Array(1) { FloatArray(128) } }
     private val vadBuf = FloatArray(VAD_WINDOW)
     private var vadFill = 0
-    private var lastSpeechProb: Double? = null
 
     // ---- YAMNet ----
     private var yamnet: Interpreter? = null
@@ -70,13 +78,18 @@ class MlClassifier(
         if (broken) return fallback.classify(buf, n, db)
         return try {
             feed(buf, n)
-            if (lastSpeechProb == null && lastSoundIsSpeech == null)
+            val kind = if (!vadSeen && lastSoundIsSpeech == null)
                 fallback.classify(buf, n, db)
             else MlDecision.decide(
-                lastSpeechProb, lastSoundIsSpeech, db,
-                trigger = calibration.trigger,
-                boostTrigger = calibration.boostTrigger
+                // hangover-smoothed verdict, not the raw per-window probability
+                speechProb = if (vadSeen) (if (smoother.speaking) 1.0 else 0.0) else null,
+                soundIsSpeech = lastSoundIsSpeech,
+                db = db,
+                trigger = adapter.trigger,
+                boostTrigger = adapter.boostTrigger
             )
+            adapter.observe(db, kind)
+            kind
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
             broken = true
@@ -89,7 +102,10 @@ class MlClassifier(
             val f = buf[i] / 32768f
             // VAD window
             vadBuf[vadFill++] = f
-            if (vadFill == VAD_WINDOW) { lastSpeechProb = runVad(); vadFill = 0 }
+            if (vadFill == VAD_WINDOW) {
+                runVad()?.let { smoother.update(it); vadSeen = true }
+                vadFill = 0
+            }
             // YAMNet ring
             soundRing[soundWritten % YAMNET_WINDOW] = f
             soundWritten++

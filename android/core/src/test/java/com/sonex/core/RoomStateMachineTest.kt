@@ -2,6 +2,7 @@ package com.sonex.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoomStateMachineTest {
@@ -26,13 +27,48 @@ class RoomStateMachineTest {
         assertEquals(RoomState.QUIET, m.state)
     }
 
-    @Test fun interruption_resets_the_streak() {
-        val m = machine(talkOn = 3)
-        m.step(FrameKind.SPEECH); m.step(FrameKind.SPEECH)
-        m.step(FrameKind.QUIET) // streak broken
-        m.step(FrameKind.SPEECH); m.step(FrameKind.SPEECH)
-        assertNull("streak must restart after interruption", m.step(FrameKind.QUIET))
+    @Test fun interruption_slows_but_does_not_reset_the_streak() {
+        // Real speech has gaps between syllables — a single quiet frame must
+        // drain the score a little, not wipe it (else ducking never fires).
+        val m = machine(talkOn = 5)
+        repeat(3) { m.step(FrameKind.SPEECH) }   // score 6 of 10
+        m.step(FrameKind.QUIET)                   // score 5 — dips, not resets
+        m.step(FrameKind.SPEECH)                  // 7
+        assertNull(m.step(FrameKind.SPEECH))      // 9 — not yet
+        assertEquals(RoomState.TALKING, m.step(FrameKind.SPEECH)) // 10+
+    }
+
+    @Test fun sparse_blips_never_accumulate_to_talking() {
+        // One speech frame every 4th frame drains faster than it fills.
+        val m = machine(talkOn = 5, quietOff = 1000)
+        repeat(200) { i ->
+            m.step(if (i % 4 == 0) FrameKind.SPEECH else FrameKind.QUIET)
+        }
         assertEquals(RoomState.QUIET, m.state)
+    }
+
+    @Test fun bursty_real_speech_still_triggers_talking() {
+        // ~70% voiced frames with syllable gaps — the realistic pattern.
+        val m = machine(talkOn = 17, quietOff = 100)
+        var flipped = false
+        repeat(60) { i ->
+            val kind = if (i % 10 < 7) FrameKind.SPEECH else FrameKind.QUIET
+            if (m.step(kind) == RoomState.TALKING) flipped = true
+        }
+        assertTrue("realistic speech cadence must duck within ~2s", flipped)
+    }
+
+    @Test fun restore_survives_occasional_blips_during_quiet() {
+        val m = machine(talkOn = 2, quietOff = 30)
+        m.step(FrameKind.SPEECH)
+        assertEquals(RoomState.TALKING, m.step(FrameKind.SPEECH))
+        // Quiet with a stray blip every 10th frame — restore must still land.
+        var restored = false
+        repeat(80) { i ->
+            val kind = if (i % 10 == 9) FrameKind.SPEECH else FrameKind.QUIET
+            if (m.step(kind) == RoomState.QUIET) restored = true
+        }
+        assertTrue("volume must recover after conversation ends", restored)
     }
 
     @Test fun sustained_quiet_restores_after_talking() {

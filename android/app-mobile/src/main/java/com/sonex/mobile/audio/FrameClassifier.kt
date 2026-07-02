@@ -3,6 +3,7 @@ package com.sonex.mobile.audio
 import com.sonex.core.Dsp
 import com.sonex.core.FrameKind
 import com.sonex.core.RoomStateMachine
+import com.sonex.core.ThresholdAdapter
 
 /**
  * THE ML SEAM. Everything above this interface is fixed app code; everything
@@ -17,13 +18,24 @@ interface FrameClassifier {
 /**
  * Phase-1 energy + zero-crossing heuristic. Always available: it is the
  * fallback whenever models are missing, unverified, or crash.
+ * Thresholds adapt to the ambient floor and use enter-high/exit-low hysteresis.
  */
-class HeuristicClassifier(private val calibration: Calibration) : FrameClassifier {
-    override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind =
-        RoomStateMachine.classify(
+class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
+    private val adapter = ThresholdAdapter(
+        ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
+    )
+    private var lastKind = FrameKind.QUIET
+
+    override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
+        val kind = RoomStateMachine.classify(
             db,
             speechShaped = Dsp.isSpeechShaped(buf, n),
-            trigger = calibration.trigger,
-            boostTrigger = calibration.boostTrigger
+            trigger = adapter.trigger,
+            boostTrigger = adapter.boostTrigger,
+            inSpeechState = lastKind == FrameKind.SPEECH
         )
+        adapter.observe(db, kind)
+        lastKind = kind
+        return kind
+    }
 }

@@ -18,26 +18,43 @@ class RoomStateMachine(
     var state: RoomState = RoomState.QUIET
         private set
 
-    private var talkStreak = 0
-    private var quietStreak = 0
-    private var boostStreak = 0
+    // Leaky integrators, not consecutive-run counters. Real speech has gaps
+    // between syllables every few frames; a hard reset on one quiet frame
+    // means 0.5s of *uninterrupted* voicing never happens and the volume
+    // never ducks. Matching frames score +2, others drain -1, so bursty
+    // speech accumulates while isolated blips decay away.
+    private var talkScore = 0
+    private var quietScore = 0
+    private var boostScore = 0
+
+    private val talkOn = talkOnFrames * 2   // +2 per hit => same time-to-trigger
+    private val quietOff = quietOffFrames * 2
 
     /**
      * Advance one frame. Returns the new state if it changed, else null.
      */
     fun step(kind: FrameKind): RoomState? {
-        when (kind) {
-            FrameKind.SPEECH -> { talkStreak++; quietStreak = 0; boostStreak = 0 }
-            FrameKind.NOISE  -> { boostStreak++; quietStreak = 0; talkStreak = 0 }
-            FrameKind.QUIET  -> { quietStreak++; talkStreak = 0; boostStreak = 0 }
-        }
+        fun leak(score: Int, hit: Boolean, cap: Int) =
+            if (hit) minOf(cap, score + 2) else maxOf(0, score - 1)
+
+        talkScore = leak(talkScore, kind == FrameKind.SPEECH, talkOn)
+        boostScore = leak(boostScore, kind == FrameKind.NOISE, talkOn)
+        quietScore = leak(quietScore, kind == FrameKind.QUIET, quietOff)
+
         val next = when {
-            talkStreak >= talkOnFrames -> RoomState.TALKING
-            boostStreak >= talkOnFrames -> RoomState.BOOST
-            quietStreak >= quietOffFrames -> RoomState.QUIET
+            talkScore >= talkOn -> RoomState.TALKING
+            boostScore >= talkOn -> RoomState.BOOST
+            quietScore >= quietOff -> RoomState.QUIET
             else -> state
         }
         if (next == state) return null
+        // Entering a state drains the counters that argue for the old one,
+        // so the next transition starts from a clean slate.
+        when (next) {
+            RoomState.TALKING -> { quietScore = 0; boostScore = 0 }
+            RoomState.BOOST -> { quietScore = 0; talkScore = 0 }
+            RoomState.QUIET -> { talkScore = 0; boostScore = 0 }
+        }
         state = next
         return next
     }
@@ -46,12 +63,25 @@ class RoomStateMachine(
         /**
          * Classify one frame from its loudness and shape against the
          * calibrated thresholds. SEAM for ML models later.
+         *
+         * @param inSpeechState pass true while already tracking speech: the
+         *   trigger drops by [hysteresisDb] so a speaker trailing off doesn't
+         *   flicker the state (enter high, exit low — classic hysteresis).
          */
-        fun classify(db: Double, speechShaped: Boolean, trigger: Double, boostTrigger: Double): FrameKind =
-            when {
-                db > trigger && speechShaped -> FrameKind.SPEECH
+        fun classify(
+            db: Double,
+            speechShaped: Boolean,
+            trigger: Double,
+            boostTrigger: Double,
+            inSpeechState: Boolean = false,
+            hysteresisDb: Double = 3.0
+        ): FrameKind {
+            val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
+            return when {
+                db > effectiveTrigger && speechShaped -> FrameKind.SPEECH
                 db > boostTrigger && !speechShaped -> FrameKind.NOISE
                 else -> FrameKind.QUIET
             }
+        }
     }
 }

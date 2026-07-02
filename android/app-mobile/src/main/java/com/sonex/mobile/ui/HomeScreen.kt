@@ -21,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,9 +57,11 @@ fun HomeScreen(
     var level by remember { mutableStateOf(-60.0) }
 
     LaunchedEffect(Unit) {
-        onEnsureMic()
+        // Resume only if the user had listening ON — never start by ourselves.
+        if (Prefs.listeningEnabled(ctx)) onEnsureMic()
         ListeningService.stateFlow.collectLatest { (s, db) -> state = s; level = db }
     }
+    val listening by ListeningService.running.collectAsState()
 
     val target = when (state) {
         RoomState.QUIET -> StateColors.quiet
@@ -94,20 +98,47 @@ fun HomeScreen(
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                when (state) {
-                    RoomState.QUIET -> "Listening"
-                    RoomState.TALKING -> "Talking — volume lowered"
-                    RoomState.BOOST -> "Loud room — volume raised"
+                when {
+                    !listening -> "Paused — tap Start to listen"
+                    state == RoomState.TALKING -> "Talking — volume lowered"
+                    state == RoomState.BOOST -> "Loud room — volume raised"
+                    else -> "Listening"
                 },
                 style = MaterialTheme.typography.headlineMedium,
-                color = orbColor
+                color = if (listening) orbColor else MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
+            if (listening) Text(
                 "Room level ${level.toInt()} dB",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
+
+            // Master switch: only the user starts or stops SoNex.
+            Button(
+                onClick = {
+                    if (listening) {
+                        Prefs.setListeningEnabled(ctx, false)
+                        ctx.stopService(android.content.Intent(ctx, ListeningService::class.java))
+                    } else {
+                        Prefs.setListeningEnabled(ctx, true)
+                        onEnsureMic()
+                    }
+                },
+                modifier = Modifier.height(52.dp),
+                colors = if (listening) ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                ) else ButtonDefaults.buttonColors()
+            ) {
+                Icon(
+                    if (listening) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                    null, Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(if (listening) "Stop listening" else "Start listening")
+            }
+            Spacer(Modifier.height(12.dp))
             FilledTonalButton(onClick = onCalibrate) { Text("Re-run calibration") }
 
             // ---- Wake word: animated "listening" banner + Stop ----

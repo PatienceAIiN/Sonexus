@@ -11,7 +11,9 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LockReset
 import androidx.compose.material.icons.filled.Palette
@@ -98,13 +100,33 @@ fun CalibrateScreen(onDone: () -> Unit) {
                                 name = "Living room",
                                 noiseFloorDb = noise, mediaBaselineDb = media, mediaPlusTalkDb = talk
                             )
-                            Text("Calibration complete", style = MaterialTheme.typography.headlineMedium)
+                            val problems = com.sonex.core.CalibrationQuality.issues(noise, media, talk)
+                            Text(
+                                if (problems.isEmpty()) "Calibration complete" else "Hmm, let's check that",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
                             Spacer(Modifier.height(16.dp))
                             Text("Noise floor  ${noise.toInt()} dB")
                             Text("TV baseline  ${media.toInt()} dB")
                             Text("Talk trigger ${cal.trigger.toInt()} dB")
+                            problems.forEach {
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "⚠ $it", textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                             Spacer(Modifier.height(24.dp))
-                            Button(onClick = { Prefs.saveCalibration(ctx, cal); onDone() }) { Text("Save") }
+                            if (problems.isNotEmpty()) {
+                                Button(onClick = { step = 1 }) { Text("Redo calibration") }
+                                Spacer(Modifier.height(8.dp))
+                                TextButton(onClick = { Prefs.saveCalibration(ctx, cal); onDone() }) {
+                                    Text("Save anyway")
+                                }
+                            } else {
+                                Button(onClick = { Prefs.saveCalibration(ctx, cal); onDone() }) { Text("Save") }
+                            }
                         }
                     }
                 }
@@ -169,6 +191,49 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             Text("Lower volume to ${duck.toInt()}% when someone talks")
             Slider(duck, { duck = it; Prefs.setDuckLevel(ctx, it.toInt()) }, valueRange = 10f..80f)
 
+            SectionHeader(Icons.Filled.SquareFoot, "Room size")
+            Text(
+                "Tell SoNex how big the room is — bigger rooms get higher sensitivity so talk from across the hall still registers.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            var roomW by remember { mutableStateOf(Prefs.roomWidth(ctx).takeIf { it > 0 }?.toString() ?: "") }
+            var roomL by remember { mutableStateOf(Prefs.roomLength(ctx).takeIf { it > 0 }?.toString() ?: "") }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    roomW, { roomW = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Width (m)") }, singleLine = true, modifier = Modifier.weight(1f),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                )
+                OutlinedTextField(
+                    roomL, { roomL = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Length (m)") }, singleLine = true, modifier = Modifier.weight(1f),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                )
+            }
+            val w = roomW.toFloatOrNull(); val l = roomL.toFloatOrNull()
+            if (w != null && l != null && w > 0 && l > 0) {
+                val sens = com.sonex.core.RoomProfile.sensitivityFor(w.toDouble(), l.toDouble())
+                Text(
+                    "Coverage sensitivity: ${(sens * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                TextButton(onClick = {
+                    buzz()
+                    Prefs.setRoomSize(ctx, w, l)
+                    val cal = Prefs.currentCalibration(ctx).copy(
+                        sensitivity = sens,
+                        restoreDelaySec = com.sonex.core.RoomProfile.restoreDelaySecFor(w.toDouble(), l.toDouble())
+                    )
+                    Prefs.saveCalibration(ctx, cal)
+                    toast("Room saved — sensitivity adapted ✓")
+                }) { Text("Apply room size") }
+            }
+
             SectionHeader(Icons.Filled.Palette, "Appearance")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
@@ -218,6 +283,16 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
 
             SectionHeader(Icons.Filled.SystemUpdate, "App")
             UpdateCheckRow(onToast = ::toast)
+            Spacer(Modifier.height(12.dp))
+            var showFeedback by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { buzz(); showFeedback = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Feedback, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Send feedback")
+            }
+            if (showFeedback) {
+                FeedbackDialog(onDismiss = { showFeedback = false }, onToast = ::toast)
+            }
 
             SectionHeader(Icons.Filled.AccountCircle, "Account")
             var showChangePw by remember { mutableStateOf(false) }
@@ -306,6 +381,55 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             Spacer(Modifier.height(12.dp))
         }
     }
+}
+
+/** Feedback modal: message + opt-in diagnostics, mailed to the growth team. */
+@Composable
+private fun FeedbackDialog(onDismiss: () -> Unit, onToast: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf("") }
+    var includeDiag by remember { mutableStateOf(true) }
+    var sending by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!sending) onDismiss() },
+        title = { Text("Send feedback") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    message, { message = it },
+                    label = { Text("What's working? What isn't?") },
+                    minLines = 4, modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(includeDiag, { includeDiag = it })
+                    Text(
+                        "Attach diagnostics (app version, calibration, settings — never audio)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = message.isNotBlank() && !sending,
+                onClick = {
+                    sending = true
+                    scope.launch {
+                        val status = ServerSync.sendFeedback(ctx, message.trim(), includeDiag)
+                        sending = false
+                        onToast(status.message)
+                        if (status is ServerSync.Status.Ok) onDismiss()
+                    }
+                }
+            ) {
+                if (sending) CircularProgressIndicator(Modifier.size(18.dp)) else Text("Send")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !sending) { Text("Cancel") } }
+    )
 }
 
 @Composable

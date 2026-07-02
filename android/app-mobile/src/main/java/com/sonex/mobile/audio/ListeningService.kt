@@ -62,6 +62,9 @@ class ListeningService : Service() {
                 extraBufferCapacity = 16
             )
 
+        /** True while the service (mic) is running. Only the user stops it. */
+        val running = kotlinx.coroutines.flow.MutableStateFlow(false)
+
         /** True while the wake word is armed ("SoNex…" heard, awaiting a command). */
         val wakeActive = kotlinx.coroutines.flow.MutableStateFlow(false)
 
@@ -106,6 +109,7 @@ class ListeningService : Service() {
 
         callMonitor = CallMonitor(this) { active -> onCallState(active) }.also { it.start() }
         startForeground(1, buildNotification(RoomState.QUIET))
+        running.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -237,6 +241,8 @@ class ListeningService : Service() {
     }
 
     override fun onDestroy() {
+        running.value = false
+        stateFlow.value = RoomState.QUIET to -60.0
         engine?.stop()
         voice?.close()
         callMonitor?.stop()

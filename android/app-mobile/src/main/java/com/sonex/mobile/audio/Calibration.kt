@@ -53,15 +53,16 @@ class Calibrator {
         )
         val buf = ShortArray(DetectionEngine.FRAME_SAMPLES)
         val totalFrames = seconds * 1000 / DetectionEngine.FRAME_MS
-        var acc = 0.0; var count = 0
+        val frames = mutableListOf<Double>()
         rec.startRecording()
         try {
             repeat(totalFrames) { i ->
                 val n = rec.read(buf, 0, buf.size)
-                if (n > 0) { acc += Dsp.rmsDb(buf, n); count++ }
+                if (n > 0) frames += Dsp.rmsDb(buf, n)
                 onProgress((i + 1f) / totalFrames)
             }
         } finally { rec.stop(); rec.release() }
-        return if (count == 0) -60.0 else acc / count
+        // Median, not mean: one door slam mustn't skew the room's anchor.
+        return if (frames.isEmpty()) -60.0 else com.sonex.core.Stats.median(frames)
     }
 }

@@ -135,6 +135,18 @@ object Prefs {
         setLoggedIn(c, false)
     }
 
+    // ---- Room geometry (metres) — tunes sensitivity/coverage ----
+    fun roomWidth(c: Context) = sp(c).getFloat("room_w", 0f)
+    fun roomLength(c: Context) = sp(c).getFloat("room_l", 0f)
+    fun setRoomSize(c: Context, w: Float, l: Float) =
+        sp(c).edit().putFloat("room_w", w).putFloat("room_l", l).apply()
+
+    // ---- Master listening switch: OFF until the user presses Start, and it
+    // never flips itself — only the Start/Stop button changes it. ----
+    fun listeningEnabled(c: Context) = sp(c).getBoolean("listening_on", false)
+    fun setListeningEnabled(c: Context, v: Boolean) =
+        sp(c).edit().putBoolean("listening_on", v).apply()
+
     // ---- UX ----
     fun hapticsEnabled(c: Context) = sp(c).getBoolean("haptics", true)
     fun setHapticsEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("haptics", v).apply()

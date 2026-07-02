@@ -77,6 +77,38 @@ object ServerSync {
         }
     }
 
+    /** In-app feedback -> growth team, with opt-in diagnostics (never audio). */
+    suspend fun sendFeedback(c: Context, message: String, includeDiagnostics: Boolean): Status {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        if (base.isBlank()) return Status.Failed("No server configured")
+        val diag = if (!includeDiagnostics) "null" else {
+            val cal = Prefs.currentCalibration(c)
+            val entries = mapOf(
+                "app_version" to (runCatching {
+                    c.packageManager.getPackageInfo(c.packageName, 0).versionName
+                }.getOrNull() ?: "?"),
+                "android" to Build.VERSION.RELEASE,
+                "device" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                "calibration" to "floor=${cal.noiseFloorDb.toInt()}dB media=${cal.mediaBaselineDb.toInt()}dB talk=${cal.mediaPlusTalkDb.toInt()}dB sens=${cal.sensitivity}",
+                "duck_level" to Prefs.duckLevel(c).toString(),
+                "room" to "${Prefs.roomWidth(c)}x${Prefs.roomLength(c)}m",
+                "paired_tv" to (Prefs.pairedTv(c) ?: "none"),
+                "consents" to "upload=${Prefs.consentUploadClips(c)} telemetry=${Prefs.consentTelemetry(c)} training=${Prefs.consentTraining(c)} wake=${Prefs.consentWakeWord(c)}"
+            )
+            entries.entries.joinToString(",", "{", "}") {
+                "\"${it.key}\":\"${it.value.replace("\"", "'")}\""
+            }
+        }
+        val body = """{"email":"${Prefs.accountEmail(c) ?: ""}","message":${json.encodeToString(kotlinx.serialization.serializer<String>(), message)},"diagnostics":$diag}"""
+        return withContext(Dispatchers.IO) {
+            try {
+                val (code, _) = http("$base/v1/feedback", "POST", body)
+                if (code in 200..299) Status.Ok("Feedback sent — thank you! ✓")
+                else Status.Failed(friendlyHttp(code))
+            } catch (t: Throwable) { Status.Failed(friendlyNetwork(t)) }
+        }
+    }
+
     private fun http(
         url: String, method: String, body: String,
         headers: Map<String, String> = emptyMap()

@@ -115,3 +115,18 @@ async def test_landing_footer_and_legal_pages(client):
     assert "/terms" in landing and "/privacy" in landing
     assert (await client.get("/terms")).status_code == 200
     assert (await client.get("/privacy")).status_code == 200
+
+
+async def test_feedback_form_emails_growth_team(client, outbox):
+    r = await client.post("/v1/feedback", json={
+        "email": "user@sonex.test", "message": "Ducking is too aggressive",
+        "diagnostics": {"app_version": "1.3", "calibration": "floor=-55dB"}
+    })
+    assert r.status_code == 202
+    fb = [m for m in outbox.messages if "feedback" in m["subject"].lower()]
+    assert fb and "Ducking" in fb[0]["html"] and "floor=-55dB" in fb[0]["html"]
+
+
+async def test_feedback_empty_message_422(client, outbox):
+    r = await client.post("/v1/feedback", json={"message": "   "})
+    assert r.status_code == 422

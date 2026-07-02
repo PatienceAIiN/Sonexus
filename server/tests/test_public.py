@@ -47,3 +47,13 @@ async def test_download_redirects_to_storage(client, storage):
 async def test_download_unknown_target_404(client, storage):
     _publish(storage)
     assert (await client.get("/download/windows")).status_code == 404
+
+
+async def test_seo_favicon_robots_sitemap(client):
+    landing = (await client.get("/")).text
+    assert "rel=\"icon\"" in landing        # browser tab icon
+    assert "og:title" in landing
+    robots = await client.get("/robots.txt")
+    assert robots.status_code == 200 and "Sitemap:" in robots.text
+    sm = await client.get("/sitemap.xml")
+    assert sm.status_code == 200 and "/privacy" in sm.text

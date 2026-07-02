@@ -46,6 +46,9 @@ class LocalDiskBackend:
     def url(self, key: str) -> str:
         return f"file://{self._path(key)}"
 
+    def exists(self, key: str) -> bool:
+        return os.path.exists(self._path(key))
+
     def delete(self, key: str) -> None:
         try:
             os.remove(self._path(key))
@@ -84,6 +87,15 @@ class CloudinaryBackend:
         url, _ = cloudinary.utils.cloudinary_url(key, resource_type="raw", sign_url=True)
         return url
 
+    def exists(self, key: str) -> bool:
+        import cloudinary.api
+
+        try:
+            cloudinary.api.resource(key, resource_type="raw")
+            return True
+        except Exception:
+            return False
+
     def delete(self, key: str) -> None:
         import cloudinary.uploader
 
@@ -116,6 +128,13 @@ class R2Backend:
             "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=3600
         )
 
+    def exists(self, key: str) -> bool:
+        try:
+            self.client.head_object(Bucket=self.bucket, Key=key)
+            return True
+        except Exception:
+            return False
+
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
@@ -147,6 +166,17 @@ class FailoverStorage:
         return data
 
     def url(self, key: str) -> str:
+        # Unlike get/put, generating a URL never *fails* on a backend that
+        # doesn't hold the object (Cloudinary just mints a dead link). Ask
+        # each backend whether it actually HAS the object first.
+        for backend in (self.primary, self.fallback):
+            try:
+                if backend.exists(key):
+                    log.info("storage url key=%s backend=%s", key, backend.name)
+                    return backend.url(key)
+            except Exception:
+                continue
+        # Nothing confirmed ownership — fall back to the old best-effort path.
         url, _ = self._attempt("url", key, "url", key)
         return url
 
