@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: sonex-api
+    runtime: python
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sonex-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sonex-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STORAGE_BACKEND
+        value: failover
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: sonex
+
+  - type: worker
+    name: sonex-worker
+    runtime: python
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m training.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sonex-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sonex-redis
+          property: connectionString
+
+  - type: redis
+    name: sonex-redis
+    plan: free
+    ipAllowList: []
+
+databases:
+  - name: sonex-db
+    plan: free

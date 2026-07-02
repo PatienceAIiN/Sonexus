@@ -1,0 +1,24 @@
+# Android
+android/build/
+android/*/build/
+android/.gradle/
+android/local.properties
+android/sonex-release.keystore
+
+# Model weights — fetched by models/download_models.sh, never committed
+models/artifacts/
+
+# Server
+server/.venv/
+server/__pycache__/
+**/__pycache__/
+server/.pytest_cache/
+server/.env
+
+# Portal
+portal/node_modules/
+portal/dist/
+
+# Misc
+*.log
+.DS_Store

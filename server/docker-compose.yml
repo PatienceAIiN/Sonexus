@@ -1,0 +1,52 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sonex:sonex@postgres:5432/sonex
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: dev-secret
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_DIR: /data/objects
+    volumes:
+      - objects:/data/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build: .
+    command: python -m training.worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sonex:sonex@postgres:5432/sonex
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_DIR: /data/objects
+    volumes:
+      - objects:/data/objects
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sonex
+      POSTGRES_PASSWORD: sonex
+      POSTGRES_DB: sonex
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonex"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+
+volumes:
+  pgdata:
+  objects:
