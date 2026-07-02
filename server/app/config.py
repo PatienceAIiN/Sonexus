@@ -10,11 +10,18 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _force_asyncpg(cls, v: str) -> str:
-        # Render/Heroku hand out postgres:// URLs; SQLAlchemy async needs the
-        # asyncpg driver scheme. Accept either and normalise.
+        # Render/Heroku/Neon hand out postgres:// URLs with libpq-style query
+        # params; the asyncpg driver needs its own scheme and param names.
         for prefix in ("postgres://", "postgresql://"):
             if v.startswith(prefix):
-                return "postgresql+asyncpg://" + v[len(prefix):]
+                v = "postgresql+asyncpg://" + v[len(prefix):]
+        if "?" in v:
+            base, query = v.split("?", 1)
+            params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+            params.pop("channel_binding", None)  # asyncpg handles SCRAM itself
+            if "sslmode" in params:  # asyncpg calls it `ssl`
+                params["ssl"] = params.pop("sslmode")
+            v = base + ("?" + "&".join(f"{k}={val}" for k, val in params.items()) if params else "")
         return v
     redis_url: str = "redis://localhost:6379/0"
 
