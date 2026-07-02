@@ -53,18 +53,30 @@ async def test_rate_limit(client, monkeypatch):
     assert 429 in statuses[3:]
 
 
-async def test_signup_creates_account_and_login_works(client):
+async def test_signup_creates_account_and_login_works(client, db, monkeypatch):
+    # OTP flow: signup -> pending, verify -> token, then login works.
+    import re
+    sent = {}
+    async def fake_send(to, subject, html):
+        sent["code"] = re.search(r">(\d{6})<", html).group(1); return True
+    from app.routers import auth as auth_router
+    monkeypatch.setattr(auth_router, "send_email", fake_send)
+
     r = await client.post("/v1/auth/signup", json={"email": "new@sonex.test", "password": "longenough8"})
     assert r.status_code == 201
-    assert r.json()["access_token"]
+    assert r.json()["pending"] is True
+    v = await client.post("/v1/auth/verify", json={"email": "new@sonex.test", "code": sent["code"]})
+    assert v.status_code == 200 and v.json()["access_token"]
     r2 = await client.post("/v1/auth/login", json={"email": "new@sonex.test", "password": "longenough8"})
     assert r2.status_code == 200
 
 
-async def test_signup_duplicate_email_409(client):
-    body = {"email": "dup@sonex.test", "password": "longenough8"}
-    assert (await client.post("/v1/auth/signup", json=body)).status_code == 201
-    assert (await client.post("/v1/auth/signup", json=body)).status_code == 409
+async def test_signup_duplicate_email_409(client, db):
+    # A verified account blocks re-signup with 409.
+    from .conftest import create_user
+    await create_user(db, "dup@sonex.test", "longenough8")
+    r = await client.post("/v1/auth/signup", json={"email": "dup@sonex.test", "password": "longenough8"})
+    assert r.status_code == 409
 
 
 async def test_signup_short_password_422(client):

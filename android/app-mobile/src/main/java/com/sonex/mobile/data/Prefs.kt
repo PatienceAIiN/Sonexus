@@ -56,6 +56,9 @@ object Prefs {
 
     fun accountEmail(c: Context): String? = sp(c).getString("acct_email", null)
 
+    fun setAccountEmail(c: Context, email: String) =
+        sp(c).edit().putString("acct_email", email.trim().lowercase()).apply()
+
     /** Create the local account. Overwrites any existing one. */
     fun createAccount(c: Context, email: String, password: CharArray) {
         val salt = PasswordHasher.newSalt()

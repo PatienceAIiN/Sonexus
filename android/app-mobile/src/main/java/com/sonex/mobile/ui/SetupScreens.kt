@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LockReset
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Speaker
@@ -219,6 +220,28 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             UpdateCheckRow(onToast = ::toast)
 
             SectionHeader(Icons.Filled.AccountCircle, "Account")
+            var showChangePw by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { buzz(); showChangePw = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.LockReset, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Change password")
+            }
+            if (showChangePw) {
+                PasswordResetDialog(
+                    initialEmail = Prefs.accountEmail(ctx) ?: "",
+                    onDismiss = { showChangePw = false },
+                    onDone = { msg ->
+                        showChangePw = false
+                        toast("$msg — signed out everywhere")
+                        Prefs.logout(ctx)   // server already tore down all sessions
+                        onLoggedOut()
+                    }
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             var confirmLogout by remember { mutableStateOf(false) }
             OutlinedButton(
                 onClick = { buzz(); confirmLogout = true },
@@ -274,7 +297,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
 
             Spacer(Modifier.height(28.dp))
             Text(
-                "a product of Patience AI · patienceai.in",
+                "A product of Patience AI",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

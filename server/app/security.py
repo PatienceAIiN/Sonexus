@@ -33,9 +33,10 @@ def hash_api_key(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, token_version: int = 0) -> str:
     payload = {
         "sub": str(user_id),
+        "ver": token_version,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expires_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -56,6 +57,9 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=401, detail="Unknown user")
+    # Password reset bumps token_version — every older token dies instantly.
+    if payload.get("ver", 0) != user.token_version:
+        raise HTTPException(status_code=401, detail="Session expired — sign in again")
     return user
 
 

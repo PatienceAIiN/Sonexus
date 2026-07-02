@@ -87,7 +87,7 @@ async def client(db_session_factory, fake_redis, storage):
 # ---- helpers ----
 
 async def create_user(db, email="dev@sonex.test", password="hunter22") -> User:
-    user = User(email=email, password_hash=hash_password(password))
+    user = User(email=email, password_hash=hash_password(password), is_verified=True)
     db.add(user)
     await db.commit()
     return user

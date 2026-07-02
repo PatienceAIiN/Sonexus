@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     r2_secret_access_key: str = ""
     r2_bucket: str = "sonex"
 
+    # Email (Brevo) — OTP verification, password reset, contact form
+    brevo_api_key: str = ""
+    brevo_sender_email: str = "info@patienceai.in"
+    brevo_sender_name: str = "SoNex"
+    contact_to_email: str = "info@patienceai.in"
+
     # Rate limiting (requests per window seconds, per device/user)
     rate_limit_requests: int = 120
     rate_limit_window: int = 60

@@ -15,6 +15,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LockReset
+import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -46,31 +48,53 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
+    var awaitingOtp by remember { mutableStateOf(false) }
+    var otp by remember { mutableStateOf("") }
+    var showForgot by remember { mutableStateOf(false) }
+
+    val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
+
+    fun succeed(token: String) {
+        Prefs.setAuthToken(ctx, token)
+        Prefs.setAccountEmail(ctx, email)
+        Prefs.setLoggedIn(ctx, true)
+        onLoggedIn()
+    }
 
     fun submit() {
         error = AuthValidator.emailError(email) ?: AuthValidator.passwordError(password)
             ?: if (isSignup && confirm != password) "Passwords don't match" else null
         if (error != null) return
-        // Accounts live on the SoNex server (URL baked in, overridable in Settings).
-        val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
-        if (base.isBlank()) {
-            error = "No server configured — set the server URL in Settings"
-            return
-        }
+        if (base.isBlank()) { error = "No server configured — set the server URL in Settings"; return }
         working = true
         scope.launch {
             val res = if (isSignup) AuthApi.signup(base, email.trim(), password)
                       else AuthApi.login(base, email.trim(), password)
             working = false
             when (res) {
-                is AuthApi.Result.Success -> {
-                    Prefs.setAuthToken(ctx, res.token)
-                    Prefs.setLoggedIn(ctx, true)
-                    onLoggedIn()
-                }
+                is AuthApi.Result.Success -> succeed(res.token)
+                is AuthApi.Result.Info -> { awaitingOtp = true; info = res.message; error = null }
+                is AuthApi.Result.Failure ->
+                    // Unverified account: the server just re-sent a code.
+                    if (res.message.contains("verified", ignoreCase = true)) {
+                        awaitingOtp = true; info = res.message; error = null
+                    } else error = res.message
+            }
+        }
+    }
+
+    fun verifyOtp() {
+        if (otp.length != 6) { error = "Enter the 6-digit code from your email"; return }
+        working = true
+        scope.launch {
+            when (val res = AuthApi.verify(base, email.trim(), otp)) {
+                is AuthApi.Result.Success -> succeed(res.token)
+                is AuthApi.Result.Info -> info = res.message
                 is AuthApi.Result.Failure -> error = res.message
             }
+            working = false
         }
     }
 
@@ -111,6 +135,54 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                         }
                     }
                 ) {
+                    if (awaitingOtp) {
+                        // ---- Step 2: the 6-digit code from the email ----
+                        Icon(Icons.Filled.MarkEmailRead, null,
+                            Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Check your email", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            info ?: "We sent a 6-digit code to $email",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        OutlinedTextField(
+                            otp, { if (it.length <= 6 && it.all(Char::isDigit)) { otp = it; error = null } },
+                            label = { Text("6-digit code") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                        )
+                        error?.let {
+                            Spacer(Modifier.height(8.dp))
+                            Text(it, color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                        }
+                        Spacer(Modifier.height(18.dp))
+                        Button(
+                            onClick = ::verifyOtp,
+                            enabled = otp.length == 6 && !working,
+                            modifier = Modifier.fillMaxWidth().height(54.dp)
+                        ) {
+                            if (working) CircularProgressIndicator(Modifier.size(22.dp))
+                            else Text("Verify", style = MaterialTheme.typography.labelLarge)
+                        }
+                        TextButton(onClick = {
+                            scope.launch {
+                                info = "Sending a new code…"
+                                val r = AuthApi.signup(base, email.trim(), password)
+                                info = when (r) {
+                                    is AuthApi.Result.Info -> r.message
+                                    is AuthApi.Result.Failure -> r.message
+                                    else -> info
+                                }
+                            }
+                        }) { Text("Resend code") }
+                        TextButton(onClick = { awaitingOtp = false; otp = ""; error = null }) {
+                            Text("Back")
+                        }
+                    } else {
                     TabRow(selectedTabIndex = if (isSignup) 1 else 0) {
                         Tab(!isSignup, onClick = { isSignup = false; error = null }, text = { Text("Sign in") })
                         Tab(isSignup, onClick = { isSignup = true; error = null }, text = { Text("Sign up") })
@@ -145,17 +217,116 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
+                    if (!isSignup) {
+                        TextButton(onClick = { showForgot = true }) {
+                            Icon(Icons.Filled.LockReset, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Forgot password?")
+                        }
+                    }
+                    }
                 }
             }
         }
         Text(
-            "a product of Patience AI · patienceai.in",
+            "A product of Patience AI",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 18.dp)
         )
+        if (showForgot) {
+            PasswordResetDialog(
+                initialEmail = email,
+                onDismiss = { showForgot = false },
+                onDone = { msg ->
+                    showForgot = false
+                    isSignup = false
+                    error = null; info = msg
+                    android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+            )
+        }
     }
+}
+
+/**
+ * Two-step reset used by "Forgot password?" and Settings -> Change password:
+ * email -> Brevo code -> new password. The server tears down every session.
+ */
+@Composable
+fun PasswordResetDialog(initialEmail: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
+    var step by remember { mutableStateOf(0) } // 0 email, 1 code + new password
+    var email by remember { mutableStateOf(initialEmail) }
+    var code by remember { mutableStateOf("") }
+    var newPw by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!working) onDismiss() },
+        title = { Text(if (step == 0) "Reset password" else "Enter the code") },
+        text = {
+            Column {
+                if (step == 0) {
+                    Text("We'll email you a 6-digit code.")
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        email, { email = it; msg = null }, label = { Text("Email") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    )
+                } else {
+                    OutlinedTextField(
+                        code, { if (it.length <= 6 && it.all(Char::isDigit)) { code = it; msg = null } },
+                        label = { Text("6-digit code") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    PasswordField(newPw, { newPw = it; msg = null }, "New password")
+                }
+                msg?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !working &&
+                    (if (step == 0) AuthValidator.emailError(email) == null
+                     else code.length == 6 && AuthValidator.passwordError(newPw) == null),
+                onClick = {
+                    working = true
+                    scope.launch {
+                        if (step == 0) {
+                            when (val r = AuthApi.forgot(base, email.trim())) {
+                                is AuthApi.Result.Info -> { step = 1; msg = null }
+                                is AuthApi.Result.Failure -> msg = r.message
+                                else -> {}
+                            }
+                        } else {
+                            when (val r = AuthApi.reset(base, email.trim(), code, newPw)) {
+                                is AuthApi.Result.Info -> onDone(r.message)
+                                is AuthApi.Result.Failure -> msg = r.message
+                                else -> {}
+                            }
+                        }
+                        working = false
+                    }
+                }
+            ) {
+                if (working) CircularProgressIndicator(Modifier.size(18.dp))
+                else Text(if (step == 0) "Send code" else "Change password")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !working) { Text("Cancel") } }
+    )
 }
 
 /** Password input with a show/hide eye toggle. */

@@ -110,6 +110,20 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Bumped on password reset; tokens carry it, so old sessions die instantly.
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class OtpCode(Base):
+    """One-time codes for signup verification and password reset (Brevo email)."""
+    __tablename__ = "otp_codes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    purpose: Mapped[str] = mapped_column(String(20))  # signup | reset
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Consent(Base):
