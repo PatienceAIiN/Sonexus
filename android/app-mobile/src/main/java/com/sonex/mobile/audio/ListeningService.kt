@@ -54,11 +54,18 @@ class ListeningService : Service() {
         const val CHANNEL = "sonex_listening"
         val stateFlow = kotlinx.coroutines.flow.MutableStateFlow(RoomState.QUIET to -60.0)
 
-        /** Manual device controls from the UI: (targetId, command). */
+        /** Manual device controls from the UI: (targetId, command). "all" broadcasts. */
         val manualCommands =
             kotlinx.coroutines.flow.MutableSharedFlow<Pair<String, com.sonex.core.Command>>(
                 extraBufferCapacity = 16
             )
+
+        /** True while the wake word is armed ("SoNex…" heard, awaiting a command). */
+        val wakeActive = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+        /** Last voice intent that fired (for the UI toast/animation). */
+        val lastVoiceIntent =
+            kotlinx.coroutines.flow.MutableStateFlow<com.sonex.core.VoiceIntent?>(null)
     }
 
     override fun onCreate() {
@@ -89,7 +96,8 @@ class ListeningService : Service() {
         // Manual per-device controls from the Home screen.
         scope.launch {
             manualCommands.collect { (id, cmd) ->
-                router.activeTargets().find { it.id == id }?.send(cmd)
+                if (id == "all") router.broadcast(cmd)
+                else router.activeTargets().find { it.id == id }?.send(cmd)
             }
         }
 
@@ -123,7 +131,19 @@ class ListeningService : Service() {
         if (!Prefs.consentWakeWord(this)) return
         val models = VoskTranscriptSource.installedModels(filesDir)
         if (models.isEmpty()) return
-        val controller = VoiceController { intent ->
+        var disarm: kotlinx.coroutines.Job? = null
+        val controller = VoiceController(
+            onWake = {
+                wakeActive.value = true
+                disarm?.cancel()
+                disarm = scope.launch {
+                    kotlinx.coroutines.delay(8_000) // mirrors WakeWordGate's window
+                    wakeActive.value = false
+                }
+            }
+        ) { intent ->
+            wakeActive.value = false
+            lastVoiceIntent.value = intent
             scope.launch {
                 router.broadcast(
                     IntentParser.toCommand(intent, Prefs.duckLevel(this@ListeningService), 100)

@@ -37,10 +37,13 @@ class MainActivity : ComponentActivity() {
 
                 when (screen) {
                     Screen.LOGIN -> LoginScreen(onLoggedIn = { screen = Screen.HOME })
-                    Screen.PAIR -> PairScreen(onPaired = { tv ->
-                        Prefs.setPairedTv(this, tv)
-                        screen = Screen.HOME
-                    })
+                    Screen.PAIR -> PairScreen(
+                        onPaired = { tv ->
+                            Prefs.setPairedTv(this, tv)
+                            screen = Screen.HOME
+                        },
+                        onBack = { screen = Screen.HOME }
+                    )
                     Screen.HOME -> HomeScreen(
                         onCalibrate = { screen = Screen.CALIBRATE },
                         onSettings = { screen = Screen.SETTINGS },

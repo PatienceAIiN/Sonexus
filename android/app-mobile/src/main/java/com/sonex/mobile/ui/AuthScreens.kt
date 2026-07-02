@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -29,7 +30,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonex.mobile.data.AuthApi
-import com.sonex.mobile.data.AuthResult
 import com.sonex.mobile.data.AuthValidator
 import com.sonex.mobile.data.Prefs
 import com.sonex.mobile.pairing.PairingClient
@@ -50,14 +50,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         error = AuthValidator.emailError(email) ?: AuthValidator.passwordError(password)
             ?: if (isSignup && confirm != password) "Passwords don't match" else null
         if (error != null) return
-        // Server is baked in (overridable in Settings); blank there = offline mode.
+        // Accounts live on the SoNex server (URL baked in, overridable in Settings).
         val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
         if (base.isBlank()) {
-            // Offline mode: on-device account.
-            when (val res = Prefs.signIn(ctx, email, password.toCharArray())) {
-                is AuthResult.Success -> onLoggedIn()
-                is AuthResult.Failure -> error = res.message
-            }
+            error = "No server configured — set the server URL in Settings"
             return
         }
         working = true
@@ -169,8 +165,9 @@ fun PasswordField(value: String, onChange: (String) -> Unit, label: String) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PairScreen(onPaired: (String) -> Unit) {
+fun PairScreen(onPaired: (String) -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { PairingClient(ctx) }
@@ -185,8 +182,18 @@ fun PairScreen(onPaired: (String) -> Unit) {
                  else "No SoNex TV found. Make sure both are on the same Wi-Fi."
     }
 
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Pair TV") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                }
+            }
+        )
+    }) { pad ->
     Column(
-        Modifier.fillMaxSize().padding(28.dp),
+        Modifier.fillMaxSize().padding(pad).padding(28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -235,5 +242,6 @@ fun PairScreen(onPaired: (String) -> Unit) {
             },
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) { if (working) CircularProgressIndicator(Modifier.size(22.dp)) else Text("Connect") }
+    }
     }
 }

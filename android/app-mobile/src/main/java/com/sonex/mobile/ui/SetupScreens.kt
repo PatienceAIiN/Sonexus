@@ -43,7 +43,14 @@ fun CalibrateScreen(onDone: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Calibrate") }) }) { pad ->
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Calibrate") },
+            navigationIcon = {
+                IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+            }
+        )
+    }) { pad ->
         Column(
             Modifier.fillMaxSize().padding(pad).padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

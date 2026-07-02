@@ -22,13 +22,14 @@ import java.io.File
 class VoiceController(
     private val gate: WakeWordGate = WakeWordGate(),
     private val now: () -> Long = System::currentTimeMillis,
+    private val onWake: () -> Unit = {},
     private val onIntent: (VoiceIntent) -> Unit
 ) {
     /** Feed one final transcript. Returns the intent if one was accepted. */
     fun onTranscript(text: String): VoiceIntent? {
         if (text.isBlank()) return null
         val t = now()
-        if (WakeWordGate.containsWakeWord(text)) gate.arm(t)
+        if (WakeWordGate.containsWakeWord(text)) { gate.arm(t); onWake() }
         val intent = IntentParser.parse(text) ?: return null
         if (!gate.tryAccept(t)) return null // no wake word => ignore commands
         onIntent(intent)
