@@ -43,7 +43,6 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf(Prefs.serverUrl(ctx) ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
 
@@ -51,7 +50,8 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         error = AuthValidator.emailError(email) ?: AuthValidator.passwordError(password)
             ?: if (isSignup && confirm != password) "Passwords don't match" else null
         if (error != null) return
-        val base = server.trim().removeSuffix("/")
+        // Server is baked in (overridable in Settings); blank there = offline mode.
+        val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
         if (base.isBlank()) {
             // Offline mode: on-device account.
             when (val res = Prefs.signIn(ctx, email, password.toCharArray())) {
@@ -67,7 +67,6 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
             working = false
             when (res) {
                 is AuthApi.Result.Success -> {
-                    Prefs.setServerUrl(ctx, base)
                     Prefs.setAuthToken(ctx, res.token)
                     Prefs.setLoggedIn(ctx, true)
                     onLoggedIn()
@@ -126,15 +125,6 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                         Spacer(Modifier.height(12.dp))
                         PasswordField(confirm, { confirm = it; error = null }, "Confirm password")
                     }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        server, { server = it; error = null },
-                        label = { Text("Server URL (optional)") },
-                        placeholder = { Text("http://192.168.1.10:8000") },
-                        supportingText = { Text("Leave empty for an offline, on-device account") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-                    )
                     error?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(it, color = MaterialTheme.colorScheme.error,
