@@ -249,6 +249,49 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
+            var showPrivacy by remember { mutableStateOf(false) }
+            TextButton(onClick = { showPrivacy = true }) {
+                Icon(Icons.Filled.Shield, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Privacy policy & data collection rules")
+            }
+            if (showPrivacy) {
+                AlertDialog(
+                    onDismissRequest = { showPrivacy = false },
+                    title = { Text("Privacy & your data") },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text(
+                                """SoNex is private by default.
+
+WHAT STAYS ON YOUR PHONE
+• All microphone audio — processed in real time and immediately discarded. No audio, transcripts or voice prints ever leave this device.
+• Your calibration, room profile and device rules.
+
+WHAT WE STORE WITH AN ACCOUNT
+• Your email and a salted password hash — nothing else.
+
+WHAT LEAVES ONLY WITH YOUR CONSENT (each toggle below, OFF by default)
+• Detection events and volume corrections — to train your home's model.
+• Short audio clips — only with "Upload clips" ON.
+• Anonymous usage statistics.
+
+YOUR RIGHTS
+• Export everything we hold, any time.
+• "Delete my data" removes database rows AND stored files, immediately.
+• Revoking a consent takes effect instantly.
+
+EMAIL
+• We send one-time codes for verification and password reset. No marketing without separate opt-in.
+
+A persistent notification is shown the entire time the mic is live. Questions: info@patienceai.in""",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { showPrivacy = false }) { Text("Got it") } }
+                )
+            }
             ConsentRow("Keep my data on this device", onDevice) {
                 onDevice = it
                 syncedConsent("c_store_server", !it)

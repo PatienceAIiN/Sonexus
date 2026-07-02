@@ -7,6 +7,8 @@ import android.view.KeyEvent
 import com.sonex.core.Action
 import com.sonex.core.Command
 import com.sonex.core.VolumePolicy
+import com.sonex.core.VolumeRamp
+import kotlinx.coroutines.delay
 import com.sonex.mobile.pairing.PairingClient
 
 /**
@@ -31,7 +33,7 @@ class PhoneSpeakerTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+                ?.let { rampStreamTo(audio, it) }
         }
     }
 }
@@ -52,7 +54,7 @@ class BluetoothTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+                ?.let { rampStreamTo(audio, it) }
         }
     }
 }
@@ -78,7 +80,7 @@ class WiredHeadsetTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+                ?.let { rampStreamTo(audio, it) }
         }
     }
 }
@@ -123,6 +125,15 @@ class CastTarget(private val context: Context) : OutputTarget {
                 Action.PAUSE -> s.remoteMediaClient?.pause()
             }
         }.onFailure { Log.w("SonexCast", "Cast command failed", it) }
+    }
+}
+
+/** Fade to the target instead of snapping — ducks ease in, restores swell. */
+private suspend fun rampStreamTo(audio: AudioManager, target: Int) {
+    val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+    for (v in VolumeRamp.steps(from, target)) {
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
+        delay(45)
     }
 }
 

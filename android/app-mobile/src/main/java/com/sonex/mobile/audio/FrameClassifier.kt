@@ -21,6 +21,7 @@ interface FrameClassifier {
  * Thresholds adapt to the ambient floor and use enter-high/exit-low hysteresis.
  */
 class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
+    private val noiseFloor = calibration.noiseFloorDb
     private val adapter = ThresholdAdapter(
         ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
     )
@@ -32,7 +33,8 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
             speechShaped = Dsp.isSpeechShaped(buf, n),
             trigger = adapter.trigger,
             boostTrigger = adapter.boostTrigger,
-            inSpeechState = lastKind == FrameKind.SPEECH
+            inSpeechState = lastKind == FrameKind.SPEECH,
+            noiseFloorDb = noiseFloor + adapter.shiftDb
         )
         adapter.observe(db, kind)
         lastKind = kind

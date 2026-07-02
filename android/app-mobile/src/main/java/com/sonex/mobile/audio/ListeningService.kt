@@ -162,7 +162,20 @@ class ListeningService : Service() {
         val source = VoskTranscriptSource(models) { text -> controller.onTranscript(text) }
         if (source.available) {
             voice = source
-            engine.pcmTap = { buf, n -> source.accept(buf, n) }
+            val voskExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+                Thread(r, "sonex-vosk").apply { priority = Thread.MIN_PRIORITY }
+            }
+            val busy = java.util.concurrent.atomic.AtomicBoolean(false)
+            engine.pcmTap = { buf, n ->
+                // Never block the mic thread: hand a copy to the decoder and
+                // drop frames while it's busy (speech recognisers cope fine).
+                if (busy.compareAndSet(false, true)) {
+                    val copy = buf.copyOf(n)
+                    voskExecutor.execute {
+                        try { source.accept(copy, n) } finally { busy.set(false) }
+                    }
+                }
+            }
         }
     }
 
@@ -171,9 +184,39 @@ class ListeningService : Service() {
         // During a call the room is forced-ducked; ignore engine-driven restores.
         if (callActive && state == RoomState.QUIET) return
         stateFlow.value = state to db
-        scope.launch { router.onState(state) }
+        logEvent(state, db)
+        // WHISPER = hold everything (RulePolicy returns null anyway) — just show it.
+        if (state != RoomState.WHISPER) scope.launch { router.onState(state) }
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(1, buildNotification(state))
+    }
+
+    // ---- Learning loop: remember what happened, contribute it when the user
+    // stops listening (only with the "learn my home" consent ON). ----
+    private val events = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    private fun logEvent(state: RoomState, db: Double) {
+        if (events.size < 500) events += """{"ts":"${java.time.Instant.now()}","type":"STATE_CHANGE","room_state":"$state","db":${"%.1f".format(db)},"source":"engine"}"""
+    }
+
+    private fun submitEvents() {
+        if (!Prefs.consentTraining(this) || events.isEmpty()) return
+        val batch = events.toList().also { events.clear() }
+        val base = (Prefs.serverUrl(this) ?: "").removeSuffix("/")
+        val key = Prefs.deviceKey(this) ?: return
+        if (base.isBlank()) return
+        // GlobalScope-style fire-and-forget: the service scope dies with us.
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val conn = java.net.URL("$base/v1/events").openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"; conn.doOutput = true
+                conn.connectTimeout = 8000; conn.readTimeout = 8000
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("X-Device-Key", key)
+                conn.outputStream.use { it.write("""{"events":[${batch.joinToString(",")}]}""".toByteArray()) }
+                conn.responseCode; conn.disconnect()
+            }
+        }
     }
 
     private fun onCallState(active: Boolean) {
@@ -229,17 +272,30 @@ class ListeningService : Service() {
             RoomState.TALKING -> if (callActive) "On a call — volume lowered"
                                  else "Someone's talking — volume lowered"
             RoomState.BOOST -> "Room got loud — volume raised"
+            RoomState.WHISPER -> "Whispering — volume untouched"
             RoomState.QUIET -> "Listening · mic active"
         }
+        // Tapping opens the app on the live animated state screen.
+        val openApp = android.app.PendingIntent.getActivity(
+            this, 0,
+            Intent(this, com.sonex.mobile.ui.MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
         return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("SoNex")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_mic)
+            .setContentIntent(openApp)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)  // update in place: no re-buzz, no flicker
+            .setSilent(true)
+            .setShowWhen(false)
             .build()
     }
 
     override fun onDestroy() {
+        submitEvents() // contribute this session's data for training (consent-gated)
         running.value = false
         stateFlow.value = RoomState.QUIET to -60.0
         engine?.stop()

@@ -154,13 +154,14 @@ class HysteresisTest {
         // -32dB is below the -30 trigger but inside the 3dB exit band.
         assertEquals(FrameKind.SPEECH,
             RoomStateMachine.classify(-32.0, true, -30.0, -27.0, inSpeechState = true))
-        assertEquals("not yet speaking => full trigger applies", FrameKind.QUIET,
-            RoomStateMachine.classify(-32.0, true, -30.0, -27.0, inSpeechState = false))
+        assertEquals("not yet speaking => soft speech is a whisper, never a duck",
+            FrameKind.WHISPER,
+            RoomStateMachine.classify(-32.0, true, -30.0, -27.0, inSpeechState = false, noiseFloorDb = -55.0))
     }
 
-    @Test fun below_the_exit_band_speech_ends() {
-        assertEquals(FrameKind.QUIET,
-            RoomStateMachine.classify(-34.0, true, -30.0, -27.0, inSpeechState = true))
+    @Test fun below_the_exit_band_speech_becomes_whisper_not_talking() {
+        assertEquals(FrameKind.WHISPER,
+            RoomStateMachine.classify(-34.0, true, -30.0, -27.0, inSpeechState = true, noiseFloorDb = -55.0))
     }
 }
 
@@ -171,5 +172,45 @@ class RoomPresetTest {
         org.junit.Assert.assertTrue(RoomProfile.Preset.OPEN.sensitivity > RoomProfile.Preset.SMALL.sensitivity)
         org.junit.Assert.assertEquals(0.53, RoomProfile.Preset.LIVING.sensitivity, 0.02)
         org.junit.Assert.assertTrue(RoomProfile.Preset.HALL.restoreDelaySec > RoomProfile.Preset.SMALL.restoreDelaySec)
+    }
+}
+
+class WhisperTest {
+    @org.junit.Test fun soft_speech_classifies_as_whisper_not_quiet() {
+        // Speech-shaped, above floor+6 but below trigger => whisper band.
+        org.junit.Assert.assertEquals(FrameKind.WHISPER,
+            RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
+        // Non-speech at the same level stays quiet.
+        org.junit.Assert.assertEquals(FrameKind.QUIET,
+            RoomStateMachine.classify(-40.0, false, -30.0, -27.0, noiseFloorDb = -55.0))
+        // Near-silence is quiet even if speech-shaped (mic hiss).
+        org.junit.Assert.assertEquals(FrameKind.QUIET,
+            RoomStateMachine.classify(-52.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
+    }
+
+    @org.junit.Test fun sustained_whisper_enters_whisper_state_and_holds_volume() {
+        val m = RoomStateMachine(talkOnFrames = 3, quietOffFrames = 10)
+        repeat(2) { m.step(FrameKind.WHISPER) }
+        org.junit.Assert.assertEquals(RoomState.WHISPER, m.step(FrameKind.WHISPER))
+        // Whisper never produces a command for any device rule.
+        TargetRule.entries.forEach {
+            org.junit.Assert.assertNull(RulePolicy.commandFor(RoomState.WHISPER, it, 30, 100))
+        }
+    }
+
+    @org.junit.Test fun whisper_then_quiet_still_restores() {
+        val m = RoomStateMachine(talkOnFrames = 2, quietOffFrames = 5)
+        m.step(FrameKind.SPEECH); m.step(FrameKind.SPEECH)   // TALKING (ducked)
+        repeat(3) { m.step(FrameKind.WHISPER) }               // WHISPER (hold)
+        var restored = false
+        repeat(15) { if (m.step(FrameKind.QUIET) == RoomState.QUIET) restored = true }
+        org.junit.Assert.assertTrue("quiet after whispering must restore", restored)
+    }
+
+    @org.junit.Test fun ramp_steps_are_gradual_and_end_on_target() {
+        org.junit.Assert.assertEquals(listOf(13, 11, 9, 7, 5), VolumeRamp.steps(15, 5, maxSteps = 5))
+        org.junit.Assert.assertEquals(emptyList<Int>(), VolumeRamp.steps(7, 7))
+        org.junit.Assert.assertEquals(listOf(5, 6), VolumeRamp.steps(4, 6))
+        org.junit.Assert.assertEquals(6, VolumeRamp.steps(4, 6).last())
     }
 }

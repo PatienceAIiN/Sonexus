@@ -74,5 +74,6 @@ object StateColors {
     val quiet = QuietTeal
     val talking = TalkCoral
     val boost = BoostAmber
+    val whisper = SignalViolet
     val signal = SignalViolet
 }

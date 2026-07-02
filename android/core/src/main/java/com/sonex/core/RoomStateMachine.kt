@@ -1,7 +1,7 @@
 package com.sonex.core
 
 /** What a single mic frame looks like after classification. */
-enum class FrameKind { SPEECH, NOISE, QUIET }
+enum class FrameKind { SPEECH, NOISE, QUIET, WHISPER }
 
 /**
  * The anti-flicker state machine behind the detect -> duck -> restore loop.
@@ -26,6 +26,7 @@ class RoomStateMachine(
     private var talkScore = 0
     private var quietScore = 0
     private var boostScore = 0
+    private var whisperScore = 0
 
     private val talkOn = talkOnFrames * 2   // +2 per hit => same time-to-trigger
     private val quietOff = quietOffFrames * 2
@@ -39,11 +40,15 @@ class RoomStateMachine(
 
         talkScore = leak(talkScore, kind == FrameKind.SPEECH, talkOn)
         boostScore = leak(boostScore, kind == FrameKind.NOISE, talkOn)
+        whisperScore = leak(whisperScore, kind == FrameKind.WHISPER, talkOn)
+        // Whispers also count toward quiet for restore purposes? No — whisper
+        // means "hold everything", so it feeds neither quiet nor talk.
         quietScore = leak(quietScore, kind == FrameKind.QUIET, quietOff)
 
         val next = when {
             talkScore >= talkOn -> RoomState.TALKING
             boostScore >= talkOn -> RoomState.BOOST
+            whisperScore >= talkOn -> RoomState.WHISPER
             quietScore >= quietOff -> RoomState.QUIET
             else -> state
         }
@@ -51,9 +56,10 @@ class RoomStateMachine(
         // Entering a state drains the counters that argue for the old one,
         // so the next transition starts from a clean slate.
         when (next) {
-            RoomState.TALKING -> { quietScore = 0; boostScore = 0 }
-            RoomState.BOOST -> { quietScore = 0; talkScore = 0 }
-            RoomState.QUIET -> { talkScore = 0; boostScore = 0 }
+            RoomState.TALKING -> { quietScore = 0; boostScore = 0; whisperScore = 0 }
+            RoomState.BOOST -> { quietScore = 0; talkScore = 0; whisperScore = 0 }
+            RoomState.QUIET -> { talkScore = 0; boostScore = 0; whisperScore = 0 }
+            RoomState.WHISPER -> { quietScore = 0 }
         }
         state = next
         return next
@@ -68,18 +74,26 @@ class RoomStateMachine(
          *   trigger drops by [hysteresisDb] so a speaker trailing off doesn't
          *   flicker the state (enter high, exit low — classic hysteresis).
          */
+        const val WHISPER_MARGIN_DB = 6.0
+
         fun classify(
             db: Double,
             speechShaped: Boolean,
             trigger: Double,
             boostTrigger: Double,
             inSpeechState: Boolean = false,
-            hysteresisDb: Double = 3.0
+            hysteresisDb: Double = 3.0,
+            noiseFloorDb: Double? = null
         ): FrameKind {
             val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
             return when {
                 db > effectiveTrigger && speechShaped -> FrameKind.SPEECH
                 db > boostTrigger && !speechShaped -> FrameKind.NOISE
+                // Whisper band: speech-shaped but soft — someone lowered their
+                // voice because they're already disturbed. Never duck for it.
+                speechShaped && noiseFloorDb != null &&
+                    db > noiseFloorDb + WHISPER_MARGIN_DB && db <= effectiveTrigger ->
+                    FrameKind.WHISPER
                 else -> FrameKind.QUIET
             }
         }

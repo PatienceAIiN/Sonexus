@@ -28,9 +28,35 @@ async def handle_job(job: dict) -> None:
         await set_job_status(r, job["id"], "failed", error=str(exc))
 
 
+async def periodic_retrain() -> None:
+    """Regularly retrain every home that has data, so models keep improving
+    without anyone pressing a button."""
+    from sqlalchemy import select
+    from app.config import settings
+    from app.models import Event, Home
+
+    hours = settings.retrain_interval_hours
+    if hours <= 0:
+        return
+    while True:
+        await asyncio.sleep(hours * 3600)
+        try:
+            async with SessionLocal() as db:
+                home_ids = (await db.execute(
+                    select(Home.id).join(Event, Event.home_id == Home.id).distinct()
+                )).scalars().all()
+            for hid in home_ids:
+                async with SessionLocal() as db:
+                    await run_training(db, get_storage(), hid)
+                log.info("periodic retrain done for home %s", hid)
+        except Exception:
+            log.exception("periodic retrain failed")
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     log.info("worker started")
+    asyncio.get_event_loop().create_task(periodic_retrain())
     r = get_redis()
     while True:
         job = await pop_job(r)

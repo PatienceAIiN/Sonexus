@@ -54,5 +54,12 @@ class Settings(BaseSettings):
 
     min_app_version: int = 1
 
+    # Admin dashboard (login-gated system monitor)
+    admin_username: str = "admin"
+    admin_password: str = ""  # ADMIN_PASSWORD env var — dashboard disabled if empty
+
+    # Periodic per-home retraining (hours); 0 disables
+    retrain_interval_hours: int = 6
+
 
 settings = Settings()

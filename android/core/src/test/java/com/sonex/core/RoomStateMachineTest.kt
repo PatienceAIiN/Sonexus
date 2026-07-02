@@ -115,11 +115,13 @@ class RoomStateMachineTest {
         )
     }
 
-    @Test fun classify_below_trigger_as_quiet() {
-        assertEquals(
-            FrameKind.QUIET,
-            RoomStateMachine.classify(-40.0, speechShaped = true, trigger = -30.0, boostTrigger = -27.0)
-        )
+    @Test fun classify_near_floor_speech_as_quiet_but_soft_speech_as_whisper() {
+        // Just above the floor: hiss, not a person => QUIET.
+        assertEquals(FrameKind.QUIET,
+            RoomStateMachine.classify(-52.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
+        // Clearly audible but below the duck trigger => WHISPER (hold volume).
+        assertEquals(FrameKind.WHISPER,
+            RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
     }
 
     @Test fun classify_soft_nonspeech_as_quiet() {

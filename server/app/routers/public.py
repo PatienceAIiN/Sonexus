@@ -180,13 +180,22 @@ __GSV__
   <span>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></span>
   <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="#contact">Contact</a></div>
 </footer>
+<div id="consent" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;
+  background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 24px rgba(32,33,36,.08);
+  padding:14px 6vw;display:none;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+  <span style="font-size:.9rem;color:var(--sub)">We use one strictly-necessary cookie for admin sign-in and
+  local storage to remember this choice — no tracking, no ads, no analytics.
+  <a href="/privacy" style="color:var(--violet)">Privacy policy</a></span>
+  <button class="btn primary" style="padding:9px 22px" onclick="acceptConsent()">Got it</button>
+</div>
 <script>
+if(!localStorage.getItem('sonex-consent')){document.getElementById('consent').style.display='flex';}
+function acceptConsent(){localStorage.setItem('sonex-consent','1');document.getElementById('consent').style.display='none';}
 const LINES = [
   "The volume that listens back.",
   "Someone talks. TV goes quiet.",
   "Room settles. Volume returns.",
   "Blender roars. SoNex turns it up.",
-  "\u201CSoNex, awaaz kam karo.\u201D",
   "No remotes. No shushing."
 ];
 (function(){

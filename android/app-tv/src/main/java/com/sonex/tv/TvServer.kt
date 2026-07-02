@@ -87,7 +87,14 @@ class TvServer(
                         is PairingProtocol.Message.Cmd -> {
                             val cmd = msg.command
                             policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                                ?.let { audio.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
+                                ?.let { target ->
+                                    // Fade, don't snap — jumps are jarring on TV speakers.
+                                    val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                    for (v in com.sonex.core.VolumeRamp.steps(from, target)) {
+                                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
+                                        Thread.sleep(45)
+                                    }
+                                }
                             onStatus("Applied ${cmd.action} (${cmd.reason})")
                             out.println(PairingProtocol.encodeState(currentState()))
                         }

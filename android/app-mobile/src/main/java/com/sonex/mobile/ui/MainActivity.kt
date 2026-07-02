@@ -53,6 +53,24 @@ class MainActivity : ComponentActivity() {
                     if (granted[Manifest.permission.RECORD_AUDIO] == true) startListening()
                 }
 
+                // System back: navigate inside the app, never silently exit.
+                var lastBackPress by remember { mutableStateOf(0L) }
+                androidx.activity.compose.BackHandler {
+                    when (screen) {
+                        Screen.PAIR, Screen.CALIBRATE, Screen.SETTINGS -> screen = Screen.HOME
+                        Screen.HOME, Screen.LOGIN -> {
+                            val now = System.currentTimeMillis()
+                            if (now - lastBackPress < 2000) finish()
+                            else {
+                                lastBackPress = now
+                                android.widget.Toast.makeText(
+                                    this, "Press back again to exit", android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+                }
+
                 AutoUpdatePrompt()
                 when (screen) {
                     Screen.LOGIN -> LoginScreen(onLoggedIn = { screen = Screen.HOME })

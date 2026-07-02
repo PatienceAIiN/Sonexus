@@ -23,8 +23,11 @@ object Stats {
 class ThresholdAdapter(
     private val calibration: ThresholdBase,
     private val riseAlpha: Double = 0.002,
-    private val fallAlpha: Double = 0.05,
-    private val maxShiftDb: Double = 10.0
+    private val fallAlpha: Double = 0.01,
+    private val maxShiftDb: Double = 10.0,
+    /** Downward drift is capped hard: a silent night must not make breathing
+     *  read as TALKING (the "false talking after a while" bug). */
+    private val maxDownShiftDb: Double = 3.0
 ) {
     data class ThresholdBase(val trigger: Double, val boostTrigger: Double, val noiseFloorDb: Double)
 
@@ -41,7 +44,7 @@ class ThresholdAdapter(
 
     /** Current shift of the ambient floor vs. calibration time, clamped. */
     val shiftDb: Double
-        get() = (floor - calibration.noiseFloorDb).coerceIn(-maxShiftDb, maxShiftDb)
+        get() = (floor - calibration.noiseFloorDb).coerceIn(-maxDownShiftDb, maxShiftDb)
 
     val trigger: Double get() = calibration.trigger + shiftDb
     val boostTrigger: Double get() = calibration.boostTrigger + shiftDb
@@ -152,4 +155,18 @@ object CalibrationQuality {
 
     fun isUsable(noiseFloorDb: Double, mediaBaselineDb: Double, mediaPlusTalkDb: Double) =
         issues(noiseFloorDb, mediaBaselineDb, mediaPlusTalkDb).isEmpty()
+}
+
+
+/**
+ * Smooth volume transitions: instead of snapping to the target, step through
+ * intermediate levels so ducks fade in and restores swell back. Pure —
+ * callers walk the list with a short delay between steps.
+ */
+object VolumeRamp {
+    fun steps(from: Int, to: Int, maxSteps: Int = 8): List<Int> {
+        if (from == to) return emptyList()
+        val n = minOf(maxSteps, kotlin.math.abs(to - from))
+        return (1..n).map { from + (to - from) * it / n }
+    }
 }

@@ -68,6 +68,7 @@ fun HomeScreen(
         RoomState.QUIET -> StateColors.quiet
         RoomState.TALKING -> StateColors.talking
         RoomState.BOOST -> StateColors.boost
+        RoomState.WHISPER -> StateColors.whisper
     }
     val orbColor by animateColorAsState(target, tween(500), label = "orb")
 
@@ -77,7 +78,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { SonexLogo(fontSize = 26.sp, breathe = false) },
+                title = { },
                 actions = {
                     IconButton(onClick = onCalibrate) { Icon(Icons.Filled.Tune, "Calibrate") }
                     IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings") }
@@ -103,6 +104,7 @@ fun HomeScreen(
                     !listening -> "Ready"
                     state == RoomState.TALKING -> "Talking — volume lowered"
                     state == RoomState.BOOST -> "Loud room — volume raised"
+                    state == RoomState.WHISPER -> "Whispering 🤫 — volume untouched"
                     else -> "Listening"
                 },
                 style = MaterialTheme.typography.headlineMedium,

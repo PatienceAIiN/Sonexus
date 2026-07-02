@@ -30,5 +30,7 @@ object RulePolicy {
                 TargetRule.PAUSE -> Command(Action.RESUME, reason = "quiet")
                 else -> Command(Action.RESTORE, reason = "quiet")
             }
+            // Whispering means "already being considerate" — change nothing.
+            RoomState.WHISPER -> null
         }
 }

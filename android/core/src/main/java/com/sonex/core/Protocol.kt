@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  */
 
 /** Listening / decision state the phone broadcasts. */
-enum class RoomState { QUIET, TALKING, BOOST }
+enum class RoomState { QUIET, TALKING, BOOST, WHISPER }
 
 /** What the TV should do when it receives a command. */
 enum class Action { DUCK, MUTE, PAUSE, RESUME, BOOST, RESTORE }
