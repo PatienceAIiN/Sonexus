@@ -1,12 +1,14 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .routers import admin, auth, device_api, portal, public
 
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="SoNex API", version="1.0")
+app.add_middleware(GZipMiddleware, minimum_size=512)
 app.include_router(auth.router, prefix="/v1")
 app.include_router(device_api.router, prefix="/v1")
 app.include_router(portal.router, prefix="/v1")

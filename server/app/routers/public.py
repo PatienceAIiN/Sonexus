@@ -30,23 +30,37 @@ def _base(request: Request) -> str:
 
 
 def _releases() -> dict:
+    from .. import cache
+
+    hit = cache.get("releases")
+    if hit is not None:
+        return hit
     try:
         data = get_storage().get(RELEASES_KEY)
-        return json.loads(data)
+        return cache.put("releases", json.loads(data), ttl_sec=30)
     except Exception:
         raise HTTPException(status_code=404, detail="No releases published yet")
+
+
+def _signed_url(key: str) -> str:
+    """Presigned URLs live 1h; cache 30min so downloads skip storage entirely."""
+    from .. import cache
+
+    hit = cache.get(f"url:{key}")
+    if hit is not None:
+        return hit
+    return cache.put(f"url:{key}", get_storage().url(key), ttl_sec=1800)
 
 
 @router.get("/v1/app/releases")
 async def app_releases():
     rel = _releases()
-    storage = get_storage()
     out = {}
     for target, info in rel.items():
         out[target] = {
             "version_code": info["version_code"],
             "version_name": info.get("version_name", ""),
-            "url": storage.url(info["key"]),
+            "url": _signed_url(info["key"]),
         }
     return out
 
@@ -56,7 +70,7 @@ async def download(target: str):
     rel = _releases()
     if target not in rel:
         raise HTTPException(status_code=404, detail="Unknown app")
-    return RedirectResponse(get_storage().url(rel[target]["key"]), status_code=307)
+    return RedirectResponse(_signed_url(rel[target]["key"]), status_code=307)
 
 
 ANDROID_SVG = """<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.7-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24c-2.86-1.21-6.08-1.21-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48C3.3 11.25 1.28 14.44 1 18h22c-.28-3.56-2.3-6.75-5.4-8.52zM7 15.25c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25zm10 0c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25z"/></svg>"""

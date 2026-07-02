@@ -107,25 +107,26 @@ async def model_manifest(
     dev = await db.get(Device, device)
     if dev is None:
         raise HTTPException(status_code=404, detail="Unknown device")
+    # ONE query for every candidate model (this home + global), newest first;
+    # pick per kind in Python. Was 6 sequential round-trips.
+    rows = (await db.execute(
+        select(Model)
+        .where(
+            Model.status == "active",
+            Model.kind.in_(_MODEL_KINDS),
+            (Model.home_id == dev.home_id) | (Model.home_id.is_(None)),
+        )
+        .order_by(Model.id.desc())
+    )).scalars().all()
     models: dict = {}
     for kind in _MODEL_KINDS:
-        for home_filter in (dev.home_id, None):  # per-home first, fall back to global
-            result = await db.execute(
-                select(Model)
-                .where(Model.kind == kind, Model.status == "active", Model.home_id == home_filter)
-                .order_by(Model.id.desc())
-            )
-            m = result.scalars().first()
-            if m is not None:
-                models[kind] = {
-                    "id": m.id,
-                    "file": m.file,
-                    "version": m.version,
-                    "sha256": m.sha256,
-                    "min_app_version": m.min_app_version,
-                    "url": f"/v1/models/{m.id}/download",
-                }
-                break
+        m = (next((r for r in rows if r.kind == kind and r.home_id == dev.home_id), None)
+             or next((r for r in rows if r.kind == kind and r.home_id is None), None))
+        if m is not None:
+            models[kind] = {
+                "id": m.id, "file": m.file, "version": m.version, "sha256": m.sha256,
+                "min_app_version": m.min_app_version, "url": f"/v1/models/{m.id}/download",
+            }
     from ..models import Home
 
     home = await db.get(Home, dev.home_id)

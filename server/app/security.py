@@ -69,10 +69,19 @@ async def get_current_device(
 ) -> Device:
     if not x_device_key:
         raise HTTPException(status_code=401, detail="Missing X-Device-Key")
-    result = await db.execute(select(Device).where(Device.api_key_hash == hash_api_key(x_device_key)))
+    from . import cache
+
+    key_hash = hash_api_key(x_device_key)
+    device_id = cache.get(f"devkey:{key_hash}")
+    if device_id is not None:
+        device = await db.get(Device, device_id)  # PK get: identity-map fast path
+        if device is not None:
+            return device
+    result = await db.execute(select(Device).where(Device.api_key_hash == key_hash))
     device = result.scalar_one_or_none()
     if device is None:
         raise HTTPException(status_code=401, detail="Invalid device key")
+    cache.put(f"devkey:{key_hash}", device.id, ttl_sec=30)
     return device
 
 

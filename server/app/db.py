@@ -10,7 +10,12 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(settings.database_url, echo=False)
+_pool_kwargs = (
+    # Warm pooled connections: no TCP+TLS+auth handshake on the request path.
+    dict(pool_size=10, max_overflow=20, pool_pre_ping=True, pool_recycle=300)
+    if settings.database_url.startswith("postgresql") else {}
+)
+engine = create_async_engine(settings.database_url, echo=False, **_pool_kwargs)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

@@ -84,6 +84,14 @@ async def client(db_session_factory, fake_redis, storage):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_ttl_cache():
+    from app import cache
+    cache.invalidate()
+    yield
+    cache.invalidate()
+
+
 # ---- helpers ----
 
 async def create_user(db, email="dev@sonex.test", password="hunter22") -> User:
