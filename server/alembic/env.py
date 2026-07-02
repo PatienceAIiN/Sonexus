@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from alembic import context
 from sqlalchemy.engine import Connection
@@ -8,10 +7,12 @@ from sqlalchemy import pool
 
 from app.db import Base
 from app import models  # noqa: F401 - register tables
+from app.config import settings
 
 config = context.config
-if os.environ.get("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+# settings normalises postgres:// / sslmode / channel_binding for asyncpg
+# (raw Render/Neon URLs would select the psycopg2 dialect and crash).
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 target_metadata = Base.metadata
 
