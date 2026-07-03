@@ -199,6 +199,71 @@ async def admin_stats(db: AsyncSession = Depends(get_db)):
     }, ttl_sec=2)
 
 
+@router.post("/admin/api/train", dependencies=[Depends(require_admin)])
+async def admin_train(db: AsyncSession = Depends(get_db)):
+    """Train the lightweight frame classifier and publish it OTA.
+
+    Trains on the open-dataset priors plus any real labelled detections, exports
+    the tiny softmax model as JSON, uploads it to storage, and registers it as a
+    new active "lite" model. The phone picks it up on its next manifest sync.
+    """
+    import hashlib
+    import json as _json
+
+    from .. import cache, training
+    from ..storage import get_storage
+
+    # Fold in real labelled detections we have level readings for (weak signal:
+    # room_state as label, level over a nominal floor; swing/zcr unknown -> mid).
+    events = (await db.execute(
+        select(Event).where(Event.db.is_not(None), Event.room_state.is_not(None))
+        .order_by(Event.id.desc()).limit(2000)
+    )).scalars().all()
+    label_idx = {c: i for i, c in enumerate(training.CLASSES)}
+    extra = []
+    for e in events:
+        ci = label_idx.get((e.room_state or "").upper())
+        if ci is None:
+            continue
+        rms_over_floor = max(0.0, (e.db or -60.0) + 55.0)  # nominal -55 dB floor
+        extra.append(([rms_over_floor, 0.2, 8.0], ci))
+
+    model = training.train(extra_samples=extra or None)
+
+    existing = (await db.execute(
+        select(func.count()).select_from(Model).where(Model.kind == "lite")
+    )).scalar() or 0
+    version = f"1.{existing + 1}"
+    payload = {
+        "version": version,
+        "classes": model["classes"],
+        "weights": model["weights"],
+        "bias": model["bias"],
+        "mean": model["mean"],
+        "std": model["std"],
+    }
+    data = _json.dumps(payload, separators=(",", ":")).encode()
+    sha = hashlib.sha256(data).hexdigest()
+    fname = f"lite-{version}.json"
+    key = f"models/{fname}"
+    backend = get_storage().put(key, data, "application/json") or "local"
+
+    # Retire older lite models so only the newest is active.
+    for old in (await db.execute(
+        select(Model).where(Model.kind == "lite", Model.status == "active")
+    )).scalars().all():
+        old.status = "rollback"
+
+    row = Model(home_id=None, kind="lite", file=fname, version=version, sha256=sha,
+                min_app_version=1, status="active", storage_key=key, backend=backend)
+    db.add(row)
+    await db.commit()
+    cache.invalidate("admin:")
+    return {"version": version, "accuracy": round(model["accuracy"], 4),
+            "n_samples": model["n_samples"], "n_real": model["n_real"],
+            "sha256": sha[:12], "backend": backend}
+
+
 DASH = """<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoNex Admin</title><meta name="robots" content="noindex">
@@ -239,7 +304,10 @@ DASH = """<!doctype html><html><head><meta charset="utf-8">
  <div class="grid" id="counts"></div>
  <h2>Live metrics (model performance)</h2><svg id="chart" preserveAspectRatio="none"></svg>
  <div class="muted" id="chartlabel"></div>
- <h2>Model training runs</h2><table id="models"><tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr></table>
+ <h2>Model training runs
+   <button id="trainBtn" onclick="trainNow()" style="margin-left:10px;padding:6px 14px;border:0;border-radius:8px;background:#7C4DFF;color:#fff;font-weight:700;cursor:pointer;font-size:.8rem">⚡ Train now</button>
+   <span class="muted" id="trainMsg"></span></h2>
+ <table id="models"><tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr></table>
  <h2>Datasets &amp; data used to improve SoNex</h2>
  <div class="muted" id="labels"></div>
  <table id="datasets"><tr><th>Source</th><th>Type</th><th>Licence</th><th>What it improves</th></tr></table>
@@ -315,6 +383,15 @@ async function editRow(name,id,rowJson){
   if(r.ok){openTable(name);refresh()}else{alert((await r.json()).detail||'Rejected')}
  }catch(_){alert('Invalid JSON')}
 }
+async function trainNow(){
+ const b=document.getElementById('trainBtn'),m=document.getElementById('trainMsg');
+ b.disabled=true;b.textContent='Training…';m.textContent='';
+ try{const r=await fetch('/admin/api/train',{method:'POST'});
+  const d=await r.json();
+  if(r.ok){m.textContent=` published v${d.version} · accuracy ${(d.accuracy*100).toFixed(1)}% · ${d.n_samples} samples (${d.n_real} real) · ${d.backend}`;refresh()}
+  else{m.textContent=' '+(d.detail||'Failed')}
+ }catch(_){m.textContent=' Network error'}
+ b.disabled=false;b.textContent='⚡ Train now'}
 function start(){refresh();timer=setInterval(refresh,3000)}
 const login_=document.getElementById('login');
 p.addEventListener('keydown',e=>{if(e.key==='Enter')login()});

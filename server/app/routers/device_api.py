@@ -98,7 +98,7 @@ async def put_consent(
 
 # ---- Models / OTA ----
 
-_MODEL_KINDS = ("vad", "sound", "home")
+_MODEL_KINDS = ("vad", "sound", "home", "lite")
 
 
 @router.get("/models/manifest")

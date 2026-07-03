@@ -98,6 +98,27 @@ async def test_admin_table_crud(client, db, monkeypatch):
     assert (await client.get("/admin/api/table/nope")).status_code == 404
 
 
+async def test_admin_train_publishes_lite_model(client, db, storage, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+
+    r = await client.post("/admin/api/train")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["version"].startswith("1.") and 0.0 <= d["accuracy"] <= 1.0 and d["n_samples"] > 0
+
+    rows = (await client.get("/admin/api/table/models")).json()["rows"]
+    lite = [x for x in rows if x["kind"] == "lite" and x["status"] == "active"]
+    assert len(lite) == 1  # exactly one active lite model after publishing
+
+    # Training again supersedes the previous one (only newest stays active).
+    assert (await client.post("/admin/api/train")).status_code == 200
+    rows2 = (await client.get("/admin/api/table/models")).json()["rows"]
+    assert len([x for x in rows2 if x["kind"] == "lite" and x["status"] == "active"]) == 1
+
+
 async def test_changelog_page_and_footer_link(client):
     landing = (await client.get("/")).text
     assert "/changelog" in landing

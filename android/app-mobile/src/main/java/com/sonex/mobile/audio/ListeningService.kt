@@ -105,7 +105,10 @@ class ListeningService : Service() {
         val fallback = HeuristicClassifier(cal)
         val vad = store.verifiedFile("vad")
         val sound = store.verifiedFile("sound")
-        return if (vad != null || sound != null) MlClassifier(vad, sound, cal, fallback) else fallback
+        if (vad != null || sound != null) return MlClassifier(vad, sound, cal, fallback)
+        // No native model? Use the OTA-trained lightweight model if we have one.
+        store.verifiedFile("lite")?.let { return LiteClassifier(it, cal, fallback) }
+        return fallback
     }
 
     /** The rule for whichever output the media is actually playing on now. */
