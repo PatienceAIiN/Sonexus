@@ -5,8 +5,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <meta name="theme-color" content="#7C4DFF">
-<script type="module" src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.3.0/dist/dotlottie-wc.js"
- onerror="document.getElementById('lottieWrap').style.display='none';document.getElementById('orb').style.display='block'"></script>
+<script type="module" src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs"></script>
 <style>
 :root{--violet:#7C4DFF;--teal:#0d9488;--coral:#FF5C7A;--amber:#FFB020;--ink:#202124;--sub:#5f6368;--line:#e8eaed;--bg:#fff;--card:#f8f9fa}
 [data-theme=dark]{--ink:#eee;--sub:#b9b3cc;--line:#2a2344;--bg:#0E0B1A;--card:#1E1836}
@@ -108,8 +107,8 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
 
 <div id="home" class="view">
   <div id="lottieWrap" style="width:230px;height:230px;margin:0 auto;transition:filter .5s">
-    <dotlottie-wc id="lottie" src="https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
-      style="width:100%;height:100%" loop speed="3"></dotlottie-wc>
+    <dotlottie-player id="lottie" src="https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
+      style="width:100%;height:100%" loop speed="3"></dotlottie-player>
   </div>
   <canvas id="orb" width="240" height="240" style="display:none"></canvas>
   <div id="status">Ready</div>
@@ -317,10 +316,14 @@ const HUES={QUIET:"grayscale(1) sepia(1) saturate(500%) hue-rotate(120deg)",
  BOOST:"grayscale(1) sepia(1) saturate(600%) hue-rotate(0deg)",
  WHISPER:"grayscale(1) sepia(1) saturate(500%) hue-rotate(215deg)"};
 function syncLottie(){
- const w=$("lottieWrap");if(!w)return;
+ const w=$("lottieWrap");if(!w||w.style.display==="none")return;
  w.style.filter=listening?HUES[state]:"grayscale(1) opacity(.45)";
- const el=$("lottie");const d=el&&el.dotLottie;
- if(d){try{listening?d.play():d.pause()}catch(_){}}}
+ const el=$("lottie");
+ if(el&&el.play){try{listening?el.play():el.pause()}catch(_){}}}
+// If the player component never loads (offline/CDN down), fall back to the orb.
+setTimeout(()=>{
+ if(!customElements.get("dotlottie-player")){
+  $("lottieWrap").style.display="none";$("orb").style.display="block"}},3000);
 function onState(){
  tvReact();syncLottie();
  $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding"}[state];
