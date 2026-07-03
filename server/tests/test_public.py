@@ -107,9 +107,12 @@ async def test_changelog_page_and_footer_link(client):
 
 async def test_sonex_web_pwa_served(client):
     landing = (await client.get("/")).text
-    assert "SoNex Web" in landing and "/app/" in landing
+    # Landing links to the web app but does NOT brand it "SoNex Web" — that name
+    # only appears once you've opened the web app itself.
+    assert "/app/" in landing and "SoNex Web" not in landing
     page = await client.get("/app/")
     assert page.status_code == 200 and "manifest.webmanifest" in page.text and "getUserMedia" in page.text
+    assert "SoNex Web" in page.text  # branded inside the app
     assert "Demo player" not in page.text and "Live room state" not in page.text
     assert "SoNex TV" in page.text and "Bluetooth" in page.text and "Cast" in page.text
     assert "Log out?" in page.text and 'class="eye"' in page.text

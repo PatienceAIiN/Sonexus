@@ -53,6 +53,10 @@ class ListeningService : Service() {
 
         /** True while the service (mic) is running. Only the user stops it. */
         val running = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+        /** Human-readable action for the CURRENT state on the active output —
+         *  reflects the user's per-device rule (muted / paused / lowered / …). */
+        val actionLabel = kotlinx.coroutines.flow.MutableStateFlow("Ready")
     }
 
     override fun onCreate() {
@@ -104,11 +108,50 @@ class ListeningService : Service() {
         return if (vad != null || sound != null) MlClassifier(vad, sound, cal, fallback) else fallback
     }
 
+    /** The rule for whichever output the media is actually playing on now. */
+    private fun activeMediaRule(): com.sonex.core.TargetRule {
+        val wired = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+            it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+            it.type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+        }
+        val id = when {
+            audio.isBluetoothA2dpOn -> "bt"
+            wired -> "wired"
+            else -> "phone"
+        }
+        return Prefs.targetRule(this, id)
+    }
+
+    /** What SoNex is actually doing right now, in the user's words — honours the
+     *  per-device rule so "Muted"/"Paused" show instead of always "lowered". */
+    private fun statusText(state: RoomState): String {
+        if (state == RoomState.QUIET) return "Listening · mic active"
+        val cmd = com.sonex.core.RulePolicy.commandFor(
+            state, activeMediaRule(), Prefs.duckLevel(this), 100
+        )
+        val verb = when (cmd?.action) {
+            com.sonex.core.Action.MUTE -> "muted"
+            com.sonex.core.Action.PAUSE -> "paused"
+            com.sonex.core.Action.DUCK -> "volume lowered"
+            com.sonex.core.Action.BOOST -> "volume raised"
+            else -> "volume untouched"
+        }
+        return when (state) {
+            RoomState.TALKING -> if (callActive) "On a call — $verb" else "Talking — $verb"
+            RoomState.BOOST -> "Room got loud — $verb"
+            RoomState.WHISPER -> "Whispering — volume untouched"
+            RoomState.WHISPER_GROUP -> "Whispering — $verb"
+            RoomState.QUIET -> "Listening · mic active"
+        }
+    }
+
     private fun onState(state: RoomState, db: Double) {
         lastRoomState = state
         // During a call the room is forced-ducked; ignore engine-driven restores.
         if (callActive && state == RoomState.QUIET) return
         stateFlow.value = state to db
+        actionLabel.value = statusText(state)
         logEvent(state, db)
         // Solo WHISPER = hold everything (RulePolicy returns null anyway) — just
         // show it. WHISPER_GROUP still routes: it gets a gentle duck.
@@ -166,14 +209,7 @@ class ListeningService : Service() {
                 NotificationChannel(CHANNEL, "SoNex listening", NotificationManager.IMPORTANCE_LOW)
             )
         }
-        val text = when (state) {
-            RoomState.TALKING -> if (callActive) "On a call — volume lowered"
-                                 else "Someone's talking — volume lowered"
-            RoomState.BOOST -> "Room got loud — volume raised"
-            RoomState.WHISPER -> "Whispering — volume untouched"
-            RoomState.WHISPER_GROUP -> "Whispering — volume eased down"
-            RoomState.QUIET -> "Listening · mic active"
-        }
+        val text = statusText(state)
         // Tapping opens the app on the live animated state screen.
         val openApp = android.app.PendingIntent.getActivity(
             this, 0,

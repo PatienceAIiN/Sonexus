@@ -193,7 +193,7 @@ __GSV__
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
-    <a class="btn web" href="/app/">✨ SoNex Web ›</a>
+    <a class="btn web" href="/app/">✨ Open in browser ›</a>
   </div>
 </div>
 <section id="features">
@@ -351,6 +351,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("3.3", "Smarter in noisy rooms: when someone is talking, SoNex now lowers your media even if a cooler, fan or machine is running - a conversation always wins over background noise, while steady machines and outside sounds (vehicles, etc.) still raise the volume when no one is speaking. The status now tells you exactly what SoNex did: it shows Muted, Paused, Volume raised or Volume lowered to match the action you chose for that device - instead of always saying 'lowered'. The web app is now branded 'SoNex Web' once you open it."),
     ("3.2", "Detection fix: talking is picked up reliably again on both the phone app and SoNex Web (a recent change had made higher-pitched and softer voices slip through). On the web, playing audio (YouTube, music) now stays full quality instead of dropping to phone-call sound - SoNex listens on your built-in mic so Bluetooth stays in high-quality playback. Connected earbuds and Bluetooth speakers show up the moment you open the app, before you press Start. Added a BETA badge."),
     ("3.1", "Whispering is recognised properly now - even a loud whisper close to the mic no longer shows as talking. SoNex Web detects your earbuds and headphones the instant you connect them (no refresh needed) and shows exactly which mic and speaker are in use. You can now set what each device does when someone talks - lower, mute, pause or boost - right from the web app, and your choices sync instantly across your phone, TV and web. The admin panel now shows every dataset and piece of data used to improve SoNex, with a live training feed."),
     ("3.0", "SoNex now starts on its own the moment your phone joins the same Wi-Fi as your paired TV - no tapping Start. Whisper detection is far more reliable (soft breathy voices are caught properly now), and when several people are whispering together SoNex shows 'Whispering' and eases the volume down a touch instead of holding it. On SoNex Web you can now pick which microphone and speaker to use - listen through your earbuds or headphones - and the Bluetooth status finally tells you the truth about what's connected."),

@@ -74,7 +74,7 @@ h2{font-size:1.3rem;margin:2px 0 12px}h3{font-size:1.02rem;margin:0 0 8px}
 .field+.field{margin-top:14px}.field label{font-size:.8rem;color:var(--sub);font-weight:600}
 @media(max-width:480px){main{padding:16px 4vw 50px}.logo{font-size:1.7rem}}
 </style></head><body>
-<header><span class="logo">SoNex<sup class="beta">BETA</sup></span><span class="row">
+<header><span class="logo">SoNex Web<sup class="beta">BETA</sup></span><span class="row">
  <button id="themeBtn" class="iconbtn" title="Theme">
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round">
    <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
@@ -368,9 +368,13 @@ function syncLottie(){
 setTimeout(()=>{
  if(!customElements.get("dotlottie-player")){
   $("lottieWrap").style.display="none";$("orb").style.display="block"}},3000);
+const RULE_VERB={DUCK:"lowering",MUTE:"muting",PAUSE:"pausing",BOOST:"boosting"};
 function onState(){
  tvReact();syncLottie();
- $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding",WHISPER_GROUP:"Whispering 🤫 — easing down"}[state];
+ // Action-aware: TALKING reflects your chosen device rule (muting/pausing/…).
+ const v=RULE_VERB[(typeof ruleFor==="function"?ruleFor("tv"):"DUCK")]||"lowering";
+ $("status").textContent={QUIET:"Listening",TALKING:"Talking — "+v,BOOST:"Loud room — boosting",
+  WHISPER:"Whispering 🤫 — holding",WHISPER_GROUP:"Whispering 🤫 — easing down"}[state];
  $("status").style.color=COLORS[state]}
 // Pick the mic. An explicit choice in Settings wins. Otherwise we DELIBERATELY
 // use the built-in mic, NOT a Bluetooth one: opening a BT earbud's mic forces

@@ -58,6 +58,8 @@ fun HomeScreen(
         ListeningService.stateFlow.collectLatest { (s, db) -> state = s; level = db }
     }
     val listening by ListeningService.running.collectAsState()
+    // Action-aware subtitle: reflects the per-device rule (Muted / Paused / …).
+    val actionLabel by ListeningService.actionLabel.collectAsState()
 
     val target = when (state) {
         RoomState.QUIET -> StateColors.quiet
@@ -144,14 +146,9 @@ fun HomeScreen(
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                when {
-                    !listening -> "Ready"
-                    state == RoomState.TALKING -> "Talking — volume lowered"
-                    state == RoomState.BOOST -> "Loud room — volume raised"
-                    state == RoomState.WHISPER -> "Whispering 🤫 — volume untouched"
-                    state == RoomState.WHISPER_GROUP -> "Whispering 🤫 — volume eased down"
-                    else -> "Listening"
-                },
+                // Action-aware: shows the real action for the active device
+                // (Muted / Paused / lowered / raised), not a fixed label.
+                if (!listening) "Ready" else actionLabel,
                 style = MaterialTheme.typography.headlineMedium,
                 color = if (listening) orbColor else MaterialTheme.colorScheme.onSurfaceVariant
             )

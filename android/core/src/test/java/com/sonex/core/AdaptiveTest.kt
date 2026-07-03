@@ -332,6 +332,28 @@ class GroupWhisperTest {
         org.junit.Assert.assertNotEquals(FrameKind.NOISE, k)
     }
 
+    @org.junit.Test fun talking_over_a_running_cooler_ducks_not_boosts() {
+        // Cooler is boosting; a person starts talking (speech bursts between the
+        // cooler frames). People-first: it must end in TALKING (duck), not BOOST.
+        val m = RoomStateMachine(talkOnFrames = 17, quietOffFrames = 100)
+        repeat(30) { m.step(FrameKind.NOISE) }              // cooler => BOOST
+        org.junit.Assert.assertEquals(RoomState.BOOST, m.state)
+        // Now a conversation: mostly speech with the cooler still poking through.
+        repeat(40) { m.step(if (it % 4 == 3) FrameKind.NOISE else FrameKind.SPEECH) }
+        org.junit.Assert.assertEquals(RoomState.TALKING, m.state)
+    }
+
+    @org.junit.Test fun rule_actions_are_distinct_for_status_labels() {
+        // The status label reads the action off RulePolicy — verify each rule maps
+        // to its own action so "Muted"/"Paused"/"lowered" show correctly.
+        org.junit.Assert.assertEquals(Action.MUTE,
+            RulePolicy.commandFor(RoomState.TALKING, TargetRule.MUTE, 30, 100)!!.action)
+        org.junit.Assert.assertEquals(Action.PAUSE,
+            RulePolicy.commandFor(RoomState.TALKING, TargetRule.PAUSE, 30, 100)!!.action)
+        org.junit.Assert.assertEquals(Action.DUCK,
+            RulePolicy.commandFor(RoomState.TALKING, TargetRule.DUCK, 30, 100)!!.action)
+    }
+
     @org.junit.Test fun normal_talking_reaches_talking_and_ducks() {
         // End-to-end guard: sustained voiced speech above the trigger must reach
         // TALKING (regression cover for the "talking not detected" report).

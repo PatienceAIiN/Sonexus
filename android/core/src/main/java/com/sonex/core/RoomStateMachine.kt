@@ -41,6 +41,10 @@ class RoomStateMachine(
 
         talkScore = leak(talkScore, kind == FrameKind.SPEECH, talkOn)
         boostScore = leak(boostScore, kind == FrameKind.NOISE, talkOn)
+        // People-first: a talking frame drains the boost score harder than a plain
+        // miss, so a conversation cuts THROUGH a running cooler/fan (which would
+        // otherwise keep boosting) and ducks instead. Speech always wins.
+        if (kind == FrameKind.SPEECH) boostScore = maxOf(0, boostScore - 2)
         // Any whisper frame counts as "someone is whispering"; only the louder
         // group-whisper frames also build the group score. When the group score
         // drains away the state falls back to a plain (hold-everything) whisper.
