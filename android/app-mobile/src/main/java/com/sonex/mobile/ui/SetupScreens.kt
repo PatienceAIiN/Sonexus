@@ -172,7 +172,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
     var telemetry by remember { mutableStateOf(Prefs.consentTelemetry(ctx)) }
     var training by remember { mutableStateOf(Prefs.consentTraining(ctx)) }
     var onDevice by remember { mutableStateOf(Prefs.storeOnDeviceOnly(ctx)) }
-    var hapticsOn by remember { mutableStateOf(Prefs.hapticsEnabled(ctx)) }
     var theme by remember { mutableStateOf(Prefs.themeMode(ctx)) }
 
     Scaffold(
@@ -241,9 +240,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                         }
                     )
                 }
-            }
-            ConsentRow("Haptic feedback", hapticsOn) {
-                hapticsOn = it; Prefs.setHapticsEnabled(ctx, it); buzz(); toast(if (it) "Haptics on ✓" else "Haptics off ✓")
             }
             var wakeOn by remember { mutableStateOf(Prefs.wakeWordEnabled(ctx)) }
             ConsentRow("Wake word \"SoNex\"", wakeOn) {

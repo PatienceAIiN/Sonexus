@@ -163,8 +163,8 @@ object Prefs {
     fun setWakeWordEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("wake_on", v).apply()
 
     // ---- UX ----
-    fun hapticsEnabled(c: Context) = sp(c).getBoolean("haptics", true)
-    fun setHapticsEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("haptics", v).apply()
+    @Suppress("UNUSED_PARAMETER")
+    fun hapticsEnabled(c: Context) = true // always on — consistent tactile feel
 
     /** Keep my data on device only (true) or allow server storage (false). */
     fun storeOnDeviceOnly(c: Context) = !sp(c).getBoolean("c_store_server", false)

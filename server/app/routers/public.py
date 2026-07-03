@@ -156,6 +156,7 @@ __GSV__
     .rotator { min-height:5.4rem; }
     section { padding:44px 5vw; }
     .cta { flex-direction:column; align-items:stretch; }
+    #dd { position:static !important; transform:none !important; min-width:0 !important; width:100%; margin-top:10px; }
     .btn { justify-content:center; }
     footer { flex-direction:column; text-align:center; }
   }
@@ -219,7 +220,7 @@ __GSV__
 </section>
 <footer>
   <span>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></span>
-  <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="#contact">Contact</a></div>
+  <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/changelog">Changelog</a><a href="#contact">Contact</a></div>
 </footer>
 <div id="consent" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;
   background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 24px rgba(32,33,36,.08);
@@ -334,6 +335,27 @@ async def sitemap(request: Request):
     xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
     return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "max-age=3600"})
+
+
+CHANGELOG = [
+    ("1.8", "Say amounts: \u201cSoNex, increase volume by 20\u201d. Wake-word on/off switch. Privacy policy opens inside the app. Smoother, minimal status animation. Smaller, faster app."),
+    ("1.7", "One tidy Calibrate button. Instant reactions on every speaker at once."),
+    ("1.6", "Whisper-aware: whispering never lowers your volume. Volume now fades gently instead of jumping. Big reliability fixes for detection."),
+    ("1.5", "Update checker built in. Pick your room size instead of measuring. Fresh look for the logo."),
+    ("1.4", "Light theme by default. Start/Stop control. Sign-out stops the mic."),
+    ("1.3", "Email code verification at sign-up. Forgot/change password. In-app updates."),
+    ("1.2", "Faster, safer sign-in. New landing page."),
+    ("1.1", "Log out, themes, feedback button, earphone support."),
+    ("1.0", "First release: TV pairing, room calibration, automatic volume."),
+]
+
+
+@router.get("/changelog", response_class=HTMLResponse)
+async def changelog():
+    items = "".join(
+        f"<h2>v{v}</h2><p>{note}</p>" for v, note in CHANGELOG
+    )
+    return _legal_page("What's new", items)
 
 
 @router.get("/terms", response_class=HTMLResponse)

@@ -53,7 +53,9 @@ class PairingClient(context: Context) {
                 if (!info.serviceType.contains("sonex")) return
                 nsd.resolveService(info, object : NsdManager.ResolveListener {
                     override fun onServiceResolved(s: NsdServiceInfo) {
-                        host = s.host; port = s.port
+                        host = s.host
+                        // Some resolvers report port 0 — fall back to the fixed port.
+                        port = if (s.port > 0) s.port else Net.DEFAULT_PORT
                         finish(true)
                     }
                     override fun onResolveFailed(s: NsdServiceInfo, e: Int) {}
@@ -80,7 +82,10 @@ class PairingClient(context: Context) {
                 val line = inp.readLine() ?: return@use PairResponse(false, "", "No response")
                 PairingProtocol.parsePaired(line) ?: PairResponse(false, "", "Bad response")
             }
-        }.getOrElse { PairResponse(false, "", it.message ?: "Connection failed") }
+        }.getOrElse {
+            PairResponse(false, "",
+                "Couldn't reach the TV — make sure the TV app is open and both devices are on the same Wi-Fi")
+        }
     }
 
     /** Fire a command to the TV; records the state it reports back. */

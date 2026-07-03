@@ -96,3 +96,10 @@ async def test_admin_table_crud(client, db, monkeypatch):
     assert (await client.delete(f"/admin/api/table/users/{uid}")).status_code == 200
     assert uid not in [r["id"] for r in (await client.get("/admin/api/table/users")).json()["rows"]]
     assert (await client.get("/admin/api/table/nope")).status_code == 404
+
+
+async def test_changelog_page_and_footer_link(client):
+    landing = (await client.get("/")).text
+    assert "/changelog" in landing
+    page = await client.get("/changelog")
+    assert page.status_code == 200 and "v1.8" in page.text and "SoNex" in page.text

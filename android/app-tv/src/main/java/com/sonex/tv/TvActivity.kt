@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +35,8 @@ class TvActivity : ComponentActivity() {
                 server.start()
             }
 
-            MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFF7C4DFF))) {
-                Surface(Modifier.fillMaxSize(), color = Color(0xFF0E0B1A)) {
+            MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF7C4DFF))) {
+                Surface(Modifier.fillMaxSize(), color = Color(0xFFFFFFFF)) {
                     Column(
                         Modifier.fillMaxSize().padding(64.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -46,24 +46,24 @@ class TvActivity : ComponentActivity() {
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
                         Text("Open SoNex on your phone and enter this code",
-                            fontSize = 20.sp, color = Color(0xFFB9B3CC))
+                            fontSize = 20.sp, color = Color(0xFF5F6368))
                         Spacer(Modifier.height(40.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                             code.forEach { c ->
                                 Surface(
-                                    color = Color(0xFF1E1836),
+                                    color = Color(0xFFF1F3F4),
                                     shape = MaterialTheme.shapes.large,
                                     modifier = Modifier.size(120.dp, 150.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(c.toString(), fontSize = 72.sp,
-                                            fontWeight = FontWeight.Black, color = Color.White)
+                                            fontWeight = FontWeight.Black, color = Color(0xFF202124))
                                     }
                                 }
                             }
                         }
                         Spacer(Modifier.height(48.dp))
-                        Text(status, fontSize = 18.sp, color = Color(0xFF2DD4BF))
+                        Text(status, fontSize = 18.sp, color = Color(0xFF0D9488))
                     }
                 }
             }
