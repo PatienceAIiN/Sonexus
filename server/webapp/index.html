@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoNex</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#7C4DFF">
+<style>
+:root{--violet:#7C4DFF;--teal:#0d9488;--coral:#FF5C7A;--amber:#FFB020;--ink:#202124;--sub:#5f6368;--line:#e8eaed;--bg:#fff;--card:#f8f9fa}
+[data-theme=dark]{--ink:#eee;--sub:#b9b3cc;--line:#2a2344;--bg:#0E0B1A;--card:#1E1836}
+*{margin:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.logo{font-weight:900;font-size:2rem;letter-spacing:-1px;background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF);
+ background-size:300% 300%;-webkit-background-clip:text;background-clip:text;color:transparent;
+ animation:shimmer 6s ease infinite,breathe 2.6s ease-in-out infinite;display:inline-block}
+@keyframes shimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 5vw;border-bottom:1px solid var(--line)}
+main{max-width:560px;margin:0 auto;padding:24px 5vw 60px}
+.view{display:none}.view.on{display:block}
+input,select{width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink);margin-top:10px}
+button{padding:13px 24px;border-radius:12px;border:0;background:var(--violet);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;margin-top:14px}
+button.ghost{background:transparent;color:var(--violet);border:1.5px solid var(--violet)}
+button.danger{background:transparent;color:#d93025;border:1.5px solid #f5c6c0}
+.err{color:#d93025;min-height:1.3em;font-size:.88rem;margin-top:8px}
+.center{text-align:center}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--sub);font-size:.86rem}
+canvas#orb{display:block;margin:10px auto}
+#status{font-size:1.35rem;font-weight:800;text-align:center;margin-top:6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+.chip{display:inline-block;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;margin:4px 4px 0 0;cursor:pointer;font-size:.86rem}
+.chip.on{border-color:var(--violet);color:var(--violet);font-weight:700}
+.switch{display:flex;justify-content:space-between;align-items:center;padding:9px 0}
+a{color:var(--violet)} footer{margin-top:34px;text-align:center;color:var(--sub);font-size:.85rem}
+.tabs{display:flex;border-bottom:2px solid var(--line);margin-bottom:14px}
+.tabs span{flex:1;text-align:center;padding:10px;cursor:pointer;font-weight:600;color:var(--sub)}
+.tabs span.on{color:var(--violet);border-bottom:2px solid var(--violet);margin-bottom:-2px}
+</style></head><body>
+<header><span class="logo">SoNex</span><span class="row">
+ <button id="themeBtn" class="ghost" style="margin:0;padding:8px 14px">◐</button>
+ <button id="settingsBtn" class="ghost" style="margin:0;padding:8px 14px;display:none">⚙</button>
+</span></header>
+<main>
+
+<div id="auth" class="view on">
+  <div class="tabs"><span id="tabIn" class="on">Sign in</span><span id="tabUp">Sign up</span></div>
+  <input id="email" type="email" placeholder="Email">
+  <input id="pw" type="password" placeholder="Password">
+  <input id="pw2" type="password" placeholder="Confirm password" style="display:none">
+  <div class="err" id="authErr"></div>
+  <button id="authBtn" style="width:100%">Sign in</button>
+  <div id="otpBox" style="display:none" class="center">
+    <p class="muted" style="margin-top:16px">We emailed you a 6-digit code.</p>
+    <input id="otp" inputmode="numeric" maxlength="6" placeholder="6-digit code" class="center">
+    <button id="otpBtn" style="width:100%">Verify</button>
+  </div>
+</div>
+
+<div id="home" class="view">
+  <canvas id="orb" width="240" height="240"></canvas>
+  <div id="status">Ready</div>
+  <p class="muted center" id="dbLine"></p>
+  <div class="center">
+    <button id="startBtn">▶ Start</button>
+  </div>
+  <div class="card">
+    <b>Live room state</b>
+    <p class="muted">SoNex Web listens through this device's microphone and shows —
+    in real time — when it would duck (talking), hold (whispering) or boost (loud room).
+    Audio never leaves your browser.</p>
+  </div>
+  <div class="card">
+    <b>Demo player</b>
+    <p class="muted">Play the tone, then talk — the web player ducks and restores just
+    like your phone and TV do.</p>
+    <button id="toneBtn" class="ghost" style="margin-top:8px">Play test tone</button>
+    <span class="muted" id="toneVol"></span>
+  </div>
+</div>
+
+<div id="settings" class="view">
+  <div class="row" style="justify-content:space-between"><h2>Settings</h2>
+    <button id="backBtn" class="ghost" style="margin:0;padding:8px 14px">← Back</button></div>
+  <div class="card"><b>Response</b>
+    <p class="muted">Duck to <span id="duckVal">30</span>% when someone talks</p>
+    <input id="duck" type="range" min="10" max="80" value="30">
+  </div>
+  <div class="card"><b>Room size</b><br>
+    <span class="chip" data-r="SMALL">Small room</span><span class="chip" data-r="BEDROOM">Bedroom</span>
+    <span class="chip on" data-r="LIVING">Living room</span><span class="chip" data-r="HALL">Hall</span>
+    <span class="chip" data-r="OPEN">Open space</span>
+  </div>
+  <div class="card"><b>Privacy</b>
+    <div class="switch"><span>Keep my data on this device</span><input type="checkbox" id="cDevice" checked></div>
+    <div class="switch"><span>Anonymous usage stats</span><input type="checkbox" id="cTele"></div>
+    <div class="switch"><span>Let SoNex learn my home</span><input type="checkbox" id="cTrain"></div>
+    <p class="muted"><a href="/privacy">Privacy policy</a> · <a href="/changelog">What's new</a></p>
+  </div>
+  <button id="logoutBtn" class="danger" style="width:100%">Log out</button>
+</div>
+
+<footer>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const API=""; // same origin
+let token=localStorage.getItem("sonex_token");
+// ---- theme ----
+const applyTheme=t=>{document.documentElement.dataset.theme=t;localStorage.setItem("sonex_theme",t)};
+applyTheme(localStorage.getItem("sonex_theme")||"light");
+$("themeBtn").onclick=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+// ---- views ----
+function show(v){for(const x of["auth","home","settings"])$(x).classList.toggle("on",x===v);
+ $("settingsBtn").style.display=v==="auth"?"none":"inline-block"}
+$("settingsBtn").onclick=()=>show("settings"); $("backBtn").onclick=()=>show("home");
+// ---- auth (same OTP flow as the app) ----
+let signup=false;
+$("tabIn").onclick=()=>{signup=false;sync()};$("tabUp").onclick=()=>{signup=true;sync()};
+function sync(){$("tabIn").classList.toggle("on",!signup);$("tabUp").classList.toggle("on",signup);
+ $("pw2").style.display=signup?"block":"none";$("authBtn").textContent=signup?"Create account":"Sign in"}
+async function api(path,body){const r=await fetch(API+path,{method:"POST",
+ headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+ let d={};try{d=await r.json()}catch(_){ } return {ok:r.ok,d}}
+$("authBtn").onclick=async()=>{
+ $("authErr").textContent="";
+ if(signup&&$("pw").value!==$("pw2").value){$("authErr").textContent="Passwords don't match";return}
+ const {ok,d}=await api(signup?"/v1/auth/signup":"/v1/auth/login",{email:$("email").value,password:$("pw").value});
+ if(ok&&d.access_token){token=d.access_token;localStorage.setItem("sonex_token",token);show("home")}
+ else if(ok&&d.pending){$("otpBox").style.display="block"}
+ else if((d.detail||"").toLowerCase().includes("verified")){$("otpBox").style.display="block"}
+ else $("authErr").textContent=d.detail||"Can't connect — check your internet";
+};
+$("otpBtn").onclick=async()=>{
+ const {ok,d}=await api("/v1/auth/verify",{email:$("email").value,code:$("otp").value});
+ if(ok&&d.access_token){token=d.access_token;localStorage.setItem("sonex_token",token);show("home")}
+ else $("authErr").textContent=d.detail||"Wrong code";
+};
+$("logoutBtn").onclick=()=>{localStorage.removeItem("sonex_token");token=null;stopListening();show("auth")};
+if(token)show("home");
+// ---- detection engine (JS port of the app's core) ----
+const COLORS={QUIET:"#0d9488",TALKING:"#FF5C7A",BOOST:"#FFB020",WHISPER:"#7C4DFF"};
+let listening=false,audioCtx=null,stream=null,state="QUIET",db=-60;
+let talkS=0,quietS=0,boostS=0,whisS=0;const TALK_ON=34,QUIET_OFF=200; // leaky x2
+const cal={floor:-55,trigger:-30,boost:-27};
+function classify(db,speechShaped){
+ if(db>cal.trigger&&speechShaped)return"SPEECH";
+ if(db>cal.boost&&!speechShaped)return"NOISE";
+ if(speechShaped&&db>cal.floor+6&&db<=cal.trigger)return"WHISPER";
+ return"QUIET"}
+function step(k){const leak=(s,hit,cap)=>hit?Math.min(cap,s+2):Math.max(0,s-1);
+ talkS=leak(talkS,k==="SPEECH",TALK_ON);boostS=leak(boostS,k==="NOISE",TALK_ON);
+ whisS=leak(whisS,k==="WHISPER",TALK_ON);quietS=leak(quietS,k==="QUIET",QUIET_OFF);
+ const next=talkS>=TALK_ON?"TALKING":boostS>=TALK_ON?"BOOST":whisS>=TALK_ON?"WHISPER":quietS>=QUIET_OFF?"QUIET":state;
+ if(next!==state){state=next;onState()}}
+function onState(){
+ $("status").textContent={QUIET:"Listening",TALKING:"Talking — would duck",BOOST:"Loud room — would boost",WHISPER:"Whispering 🤫 — holding"}[state];
+ $("status").style.color=COLORS[state];
+ duckTone(state==="TALKING")}
+async function startListening(){
+ try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+ catch(_){$("status").textContent="Microphone permission needed";return}
+ audioCtx=new AudioContext({sampleRate:16000});
+ const src=audioCtx.createMediaStreamSource(stream);
+ const proc=audioCtx.createScriptProcessor(512,1,1);
+ src.connect(proc);proc.connect(audioCtx.destination);
+ proc.onaudioprocess=e=>{
+  const b=e.inputBuffer.getChannelData(0);
+  let sum=0,cross=0;for(let i=0;i<b.length;i++){sum+=b[i]*b[i];if(i&&(b[i]>=0)!==(b[i-1]>=0))cross++}
+  const rms=Math.sqrt(sum/b.length);db=rms>0?20*Math.log10(rms):-100;
+  const zcr=cross/b.length,speech=zcr>=0.05&&zcr<=0.35;
+  step(classify(db,speech));
+  $("dbLine").textContent=`Room level ${db.toFixed(0)} dB`};
+ listening=true;$("startBtn").textContent="■ Stop";$("startBtn").style.background="#d93025";
+ $("status").textContent="Listening";$("status").style.color=COLORS.QUIET}
+function stopListening(){
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ if(audioCtx)audioCtx.close();stream=audioCtx=null;listening=false;state="QUIET";
+ talkS=quietS=boostS=whisS=0;
+ $("startBtn").textContent="▶ Start";$("startBtn").style.background="";
+ $("status").textContent="Ready";$("status").style.color="";$("dbLine").textContent=""}
+$("startBtn").onclick=()=>listening?stopListening():startListening();
+// ---- demo tone that ducks like the real outputs ----
+let osc=null,gain=null,toneOn=false;
+$("toneBtn").onclick=()=>{
+ if(toneOn){osc.stop();osc=null;toneOn=false;$("toneBtn").textContent="Play test tone";$("toneVol").textContent="";return}
+ const ctx=audioCtx||new AudioContext();osc=ctx.createOscillator();gain=ctx.createGain();
+ osc.frequency.value=220;gain.gain.value=0.25;osc.connect(gain);gain.connect(ctx.destination);
+ osc.start();toneOn=true;$("toneBtn").textContent="Stop tone"};
+function duckTone(duck){if(!gain)return;const target=duck?0.25*($("duck").value/100):0.25;
+ gain.gain.linearRampToValueAtTime(target,(audioCtx?audioCtx.currentTime:0)+0.4);
+ $("toneVol").textContent=duck?` ducked to ${$("duck").value}%`:""}
+// ---- settings ----
+$("duck").oninput=()=>{$("duckVal").textContent=$("duck").value;localStorage.setItem("sonex_duck",$("duck").value)};
+$("duck").value=localStorage.getItem("sonex_duck")||30;$("duckVal").textContent=$("duck").value;
+const SENS={SMALL:.42,BEDROOM:.50,LIVING:.53,HALL:.66,OPEN:.79};
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+ document.querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));c.classList.add("on");
+ const s=SENS[c.dataset.r];cal.trigger=-35+(-25 - -35)*(1-s)});
+// ---- orb: same minimal animation as the app ----
+const cv=$("orb"),cx=cv.getContext("2d");let sweep=0;
+function draw(){
+ const c=COLORS[listening?state:"QUIET"],r=110,mid=120;
+ cx.clearRect(0,0,240,240);
+ const breathe=0.94+0.06*Math.sin(Date.now()/760);
+ const g=cx.createRadialGradient(mid,mid,0,mid,mid,r*breathe);
+ g.addColorStop(0,c+"38");g.addColorStop(1,c+"00");
+ cx.fillStyle=g;cx.beginPath();cx.arc(mid,mid,r*breathe,0,7);cx.fill();
+ cx.fillStyle=listening?c:"#9aa0a6";cx.beginPath();cx.arc(mid,mid,26*breathe,0,7);cx.fill();
+ if(listening){sweep+=0.035;cx.strokeStyle=c;cx.lineWidth=5;cx.lineCap="round";
+  cx.beginPath();cx.arc(mid,mid,68,sweep,sweep+1.25);cx.stroke()}
+ requestAnimationFrame(draw)}
+draw();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");
+</script></body></html>

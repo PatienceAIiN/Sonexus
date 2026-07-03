@@ -1,6 +1,9 @@
 import logging
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
 
 from .routers import admin, auth, device_api, portal, public
@@ -14,6 +17,7 @@ app.include_router(device_api.router, prefix="/v1")
 app.include_router(portal.router, prefix="/v1")
 app.include_router(public.router)  # /, /download/*, /v1/app/releases
 app.include_router(admin.router)  # /admin dashboard
+app.mount("/app", StaticFiles(directory=Path(__file__).resolve().parent.parent / "webapp", html=True), name="webapp")  # SoNex Web PWA
 
 
 @app.get("/healthz")

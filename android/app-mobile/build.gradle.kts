@@ -11,8 +11,8 @@ android {
         applicationId = "com.sonex.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "2.1"
+        versionCode = 13
+        versionName = "2.2"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -52,6 +52,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")

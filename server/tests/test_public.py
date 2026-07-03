@@ -103,3 +103,13 @@ async def test_changelog_page_and_footer_link(client):
     assert "/changelog" in landing
     page = await client.get("/changelog")
     assert page.status_code == 200 and "v1.8" in page.text and "SoNex" in page.text
+
+
+async def test_sonex_web_pwa_served(client):
+    landing = (await client.get("/")).text
+    assert "SoNex Web" in landing and "/app/" in landing
+    page = await client.get("/app/")
+    assert page.status_code == 200 and "manifest.webmanifest" in page.text and "getUserMedia" in page.text
+    assert (await client.get("/app/manifest.webmanifest")).status_code == 200
+    assert (await client.get("/app/sw.js")).status_code == 200
+    assert (await client.get("/app/icon.svg")).status_code == 200

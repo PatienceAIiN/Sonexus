@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,26 +92,55 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
-            // Live state orb — minimal: a soft breathing core inside one thin
-            // arc that sweeps continuously. Calm, smooth, no glow stack.
-            Canvas(Modifier.size(220.dp)) {
-                val c = Offset(size.width / 2, size.height / 2)
-                val r = size.minDimension / 2
-                drawCircle(  // soft halo
-                    androidx.compose.ui.graphics.Brush.radialGradient(
-                        listOf(orbColor.copy(alpha = 0.22f), orbColor.copy(alpha = 0f)),
-                        center = c, radius = r * breathe
-                    ), radius = r * breathe, center = c
+            // Live animation: plays while listening, freezes on Stop, tinted
+            // with the current activity colour (quiet/talk/boost/whisper).
+            val composition by com.airbnb.lottie.compose.rememberLottieComposition(
+                com.airbnb.lottie.compose.LottieCompositionSpec.Url(
+                    "https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
                 )
-                drawCircle(orbColor, radius = r * 0.24f * breathe, center = c)
-                drawArc(  // thin sweeping arc
-                    color = orbColor.copy(alpha = 0.8f),
-                    startAngle = sweep, sweepAngle = 72f, useCenter = false,
-                    topLeft = Offset(c.x - r * 0.62f, c.y - r * 0.62f),
-                    size = androidx.compose.ui.geometry.Size(r * 1.24f, r * 1.24f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+            val lottieProgress by com.airbnb.lottie.compose.animateLottieCompositionAsState(
+                composition,
+                isPlaying = listening,
+                iterations = com.airbnb.lottie.compose.LottieConstants.IterateForever,
+                speed = 3f
+            )
+            val tint = com.airbnb.lottie.compose.rememberLottieDynamicProperties(
+                com.airbnb.lottie.compose.rememberLottieDynamicProperty(
+                    com.airbnb.lottie.LottieProperty.COLOR_FILTER,
+                    android.graphics.PorterDuffColorFilter(
+                        orbColor.toArgb(), android.graphics.PorterDuff.Mode.SRC_ATOP
+                    ),
+                    "**"
                 )
+            )
+            if (composition != null) {
+                com.airbnb.lottie.compose.LottieAnimation(
+                    composition, { lottieProgress },
+                    dynamicProperties = tint,
+                    modifier = Modifier.size(220.dp)
+                )
+            } else {
+                // Offline fallback: the minimal orb.
+                Canvas(Modifier.size(220.dp)) {
+                    val c = Offset(size.width / 2, size.height / 2)
+                    val r = size.minDimension / 2
+                    drawCircle(
+                        androidx.compose.ui.graphics.Brush.radialGradient(
+                            listOf(orbColor.copy(alpha = 0.22f), orbColor.copy(alpha = 0f)),
+                            center = c, radius = r * breathe
+                        ), radius = r * breathe, center = c
+                    )
+                    drawCircle(orbColor, radius = r * 0.24f * breathe, center = c)
+                    drawArc(
+                        color = orbColor.copy(alpha = 0.8f),
+                        startAngle = sweep, sweepAngle = 72f, useCenter = false,
+                        topLeft = Offset(c.x - r * 0.62f, c.y - r * 0.62f),
+                        size = androidx.compose.ui.geometry.Size(r * 1.24f, r * 1.24f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = 5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                }
             }
             Spacer(Modifier.height(24.dp))
             Text(

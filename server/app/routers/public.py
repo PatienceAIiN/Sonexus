@@ -125,6 +125,10 @@ __GSV__
   .btn:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(124,77,255,.25); }
   .btn.primary { background:var(--violet); color:#fff; }
   .btn.secondary { background:#fff; color:var(--violet); border:1.5px solid var(--violet); }
+  .btn.web { background:linear-gradient(120deg,#7C4DFF,#2DD4BF); color:#fff;
+    animation:webglow 2.2s ease-in-out infinite; }
+  @keyframes webglow { 0%,100%{box-shadow:0 0 10px rgba(124,77,255,.45)}
+    50%{box-shadow:0 0 26px rgba(45,212,191,.65)} }
   section { padding:64px 6vw; max-width:1100px; margin:0 auto; }
   section h2 { font-size:2rem; font-weight:700; text-align:center; margin-bottom:38px; }
   .features { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:22px; }
@@ -186,6 +190,7 @@ __GSV__
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
+    <a class="btn web" href="/app/">✨ SoNex Web ›</a>
   </div>
 </div>
 <section id="features">
@@ -343,6 +348,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("2.2", "Meet SoNex Web — use SoNex right in your browser, installable as an app. Plus a brand-new live animation on the home screen that dances while SoNex listens."),
     ("2.1", "Sharper focus: SoNex now puts everything into flawless automatic volume — leaner, smaller and noticeably snappier. Cleaner home screen too."),
     ("2.0", "Voice volume now shows the on-screen slider gliding on phone and TV. Voice reacts in a blink. Clearer status when the mic is off."),
     ("1.9", "TV pairing fix. TV app is now light-themed. Friendlier error messages. What's-new page (you're reading it)."),
