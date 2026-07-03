@@ -158,7 +158,7 @@ fun HomeScreen(
                 color = if (listening) orbColor else MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (listening) Text(
-                "Room level ${level.toInt()} dB",
+                "Room level: ${(level + 100).toInt().coerceIn(0, 100)}/100",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -348,6 +348,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("2.6", "Room level now reads as a simple 0-100 meter - no more confusing negative numbers."),
     ("2.5", "The home animation now dances all the time - soft grey while resting, glowing with the room's mood while listening."),
     ("2.4", "One login, everywhere: change a setting on your phone and SoNex Web follows within seconds - and vice versa. The web now shows the app's live animation, and browser back works naturally."),
     ("2.3", "Pair your TV straight from SoNex Web and control it from any network — no app needed. Smarter theme button too."),
