@@ -11,8 +11,8 @@ android {
         applicationId = "com.sonex.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "2.0"
+        versionCode = 12
+        versionName = "2.1"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -62,9 +62,6 @@ dependencies {
     // Phase 2: on-device ML (models are OTA data files, these are just runtimes)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    // Phase 6: offline speech recognition (EN + HI models are downloaded data)
-    implementation("com.alphacephei:vosk-android:0.3.47")
-    implementation("net.java.dev.jna:jna:5.13.0@aar")
     // Phase 7: Cast output target
     implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
     testImplementation("junit:junit:4.13.2")

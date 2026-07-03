@@ -20,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -38,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import com.sonex.core.Action
 import com.sonex.core.Command
 import com.sonex.core.RoomState
-import com.sonex.core.VoiceIntent
 import com.sonex.mobile.audio.ListeningService
 import com.sonex.mobile.data.Prefs
 import kotlinx.coroutines.flow.collectLatest
@@ -117,7 +115,7 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
             Text(
                 when {
-                    !listening -> "Ready — press Start to listen"
+                    !listening -> "Ready"
                     state == RoomState.TALKING -> "Talking — volume lowered"
                     state == RoomState.BOOST -> "Loud room — volume raised"
                     state == RoomState.WHISPER -> "Whispering 🤫 — volume untouched"
@@ -125,11 +123,6 @@ fun HomeScreen(
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = if (listening) orbColor else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (!listening) Text(
-                "Voice commands need the mic — they work while listening is on",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (listening) Text(
                 "Room level ${level.toInt()} dB",
@@ -168,62 +161,6 @@ fun HomeScreen(
                     Spacer(Modifier.width(6.dp))
                     Text("Calibrate")
                 }
-            }
-
-            // ---- Wake word: animated "listening" banner + Stop ----
-            val wakeActive by ListeningService.wakeActive.collectAsState()
-            val lastIntent by ListeningService.lastVoiceIntent.collectAsState()
-            LaunchedEffect(lastIntent) {
-                if (lastIntent != null) { kotlinx.coroutines.delay(3000); ListeningService.lastVoiceIntent.value = null }
-            }
-            AnimatedVisibility(wakeActive, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                val wakePulse = rememberInfiniteTransition(label = "wake")
-                val wakeScale by wakePulse.animateFloat(
-                    1f, 1.25f, infiniteRepeatable(tween(500), RepeatMode.Reverse), label = "ws"
-                )
-                Card(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Filled.Mic, "SoNex is listening",
-                            Modifier.size(28.dp).scale(wakeScale),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("SoNex is listening…", style = MaterialTheme.typography.titleSmall)
-                            Text("Say a command, or \"stop\"", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Button(onClick = {
-                            ListeningService.wakeActive.value = false
-                            scope.launch {
-                                ListeningService.manualCommands.emit(
-                                    "all" to Command(Action.PAUSE, reason = "voice-stop")
-                                )
-                            }
-                        }) { Text("Stop") }
-                    }
-                }
-            }
-            AnimatedVisibility(lastIntent != null, enter = fadeIn(), exit = fadeOut()) {
-                Text(
-                    when (lastIntent) {
-                        VoiceIntent.STOP -> "⏸ Stopped"
-                        VoiceIntent.PLAY -> "▶ Playing"
-                        VoiceIntent.LOWER_VOLUME -> "🔉 Volume lowered"
-                        VoiceIntent.RAISE_VOLUME -> "🔊 Volume raised"
-                        VoiceIntent.MUTE -> "🔇 Muted"
-                        VoiceIntent.RESTORE, null -> "🔊 Volume restored"
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
 
             // ---- Devices: everything SoNex is controlling right now ----

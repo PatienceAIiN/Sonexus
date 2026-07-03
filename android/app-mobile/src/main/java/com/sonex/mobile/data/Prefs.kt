@@ -158,10 +158,6 @@ object Prefs {
     fun setListeningEnabled(c: Context, v: Boolean) =
         sp(c).edit().putBoolean("listening_on", v).apply()
 
-    // Wake word "SoNex" — ON by default, uses the same mic (no extra permission).
-    fun wakeWordEnabled(c: Context) = sp(c).getBoolean("wake_on", true)
-    fun setWakeWordEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("wake_on", v).apply()
-
     // ---- UX ----
     @Suppress("UNUSED_PARAMETER")
     fun hapticsEnabled(c: Context) = true // always on — consistent tactile feel

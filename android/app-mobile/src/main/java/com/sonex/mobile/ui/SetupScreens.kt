@@ -241,12 +241,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                     )
                 }
             }
-            var wakeOn by remember { mutableStateOf(Prefs.wakeWordEnabled(ctx)) }
-            ConsentRow("Wake word \"SoNex\"", wakeOn) {
-                wakeOn = it; Prefs.setWakeWordEnabled(ctx, it); buzz()
-                toast(if (it) "Say \"SoNex\" + a command ✓ (restart listening)" else "Wake word off ✓")
-            }
-
             SectionHeader(Icons.Filled.Shield, "Privacy & consent")
             Text(
                 "Audio never leaves your phone unless you turn these on.",

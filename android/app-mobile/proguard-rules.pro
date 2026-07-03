@@ -1,7 +1,5 @@
 # SoNex release hardening: R8 shrink/obfuscate with keeps for reflective libs.
 -keep class com.sonex.** { *; }
--keep class org.vosk.** { *; }
--keep class com.sun.jna.** { *; }
 -keep class ai.onnxruntime.** { *; }
 -keep class org.tensorflow.** { *; }
 -keepclassmembers class kotlinx.serialization.json.** { *; }

@@ -9,7 +9,6 @@ import android.content.Intent
 import android.media.AudioManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.sonex.core.IntentParser
 import com.sonex.core.RoomState
 import com.sonex.core.TargetRule
 import com.sonex.mobile.R
@@ -22,8 +21,6 @@ import com.sonex.mobile.output.PhoneSpeakerTarget
 import com.sonex.mobile.output.TvTarget
 import com.sonex.mobile.output.WiredHeadsetTarget
 import com.sonex.mobile.pairing.PairingClient
-import com.sonex.mobile.voice.VoiceController
-import com.sonex.mobile.voice.VoskTranscriptSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,14 +43,12 @@ class ListeningService : Service() {
     private lateinit var router: OutputRouter
     private var pairing: PairingClient? = null
     private var callMonitor: CallMonitor? = null
-    private var voice: VoskTranscriptSource? = null
 
     @Volatile private var callActive = false
     @Volatile private var lastRoomState = RoomState.QUIET
 
     companion object {
         const val CHANNEL = "sonex_listening"
-        const val WAKE_CHANNEL = "sonex_wake"
         val stateFlow = kotlinx.coroutines.flow.MutableStateFlow(RoomState.QUIET to -60.0)
 
         /** Manual device controls from the UI: (targetId, command). "all" broadcasts. */
@@ -64,13 +59,6 @@ class ListeningService : Service() {
 
         /** True while the service (mic) is running. Only the user stops it. */
         val running = kotlinx.coroutines.flow.MutableStateFlow(false)
-
-        /** True while the wake word is armed ("SoNex…" heard, awaiting a command). */
-        val wakeActive = kotlinx.coroutines.flow.MutableStateFlow(false)
-
-        /** Last voice intent that fired (for the UI toast/animation). */
-        val lastVoiceIntent =
-            kotlinx.coroutines.flow.MutableStateFlow<com.sonex.core.VoiceIntent?>(null)
     }
 
     override fun onCreate() {
@@ -116,10 +104,7 @@ class ListeningService : Service() {
         if (engine == null) {
             val cal = Prefs.currentCalibration(this)
             engine = DetectionEngine(cal, buildClassifier(cal)) { state, db -> onState(state, db) }
-                .also {
-                    attachVoiceControl(it)
-                    it.start()
-                }
+                .also { it.start() }
         }
         return START_STICKY
     }
@@ -131,63 +116,6 @@ class ListeningService : Service() {
         val vad = store.verifiedFile("vad")
         val sound = store.verifiedFile("sound")
         return if (vad != null || sound != null) MlClassifier(vad, sound, cal, fallback) else fallback
-    }
-
-    /** Voice control rides the same mic — zero extra permissions, instant. */
-    private fun attachVoiceControl(engine: DetectionEngine) {
-        if (!Prefs.wakeWordEnabled(this)) return
-        val models = VoskTranscriptSource.installedModels(filesDir)
-        if (models.isEmpty()) return
-        var disarm: kotlinx.coroutines.Job? = null
-        val controller = VoiceController(
-            onWake = {
-                wakeActive.value = true
-                playWakeTone()
-                showWakeNotification()
-                disarm?.cancel()
-                disarm = scope.launch {
-                    kotlinx.coroutines.delay(8_000) // mirrors WakeWordGate's window
-                    wakeActive.value = false
-                    (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(2)
-                }
-            }
-        ) { intent, amount ->
-            wakeActive.value = false
-            lastVoiceIntent.value = intent
-            scope.launch {
-                // "increase volume by 20" => shift from the CURRENT level.
-                val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                val currentPct = audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max
-                val cmd = when {
-                    amount != null && intent == com.sonex.core.VoiceIntent.RAISE_VOLUME ->
-                        com.sonex.core.Command(com.sonex.core.Action.BOOST,
-                            (currentPct + amount).coerceAtMost(100), "voice")
-                    amount != null && intent == com.sonex.core.VoiceIntent.LOWER_VOLUME ->
-                        com.sonex.core.Command(com.sonex.core.Action.DUCK,
-                            (currentPct - amount).coerceAtLeast(0), "voice")
-                    else -> IntentParser.toCommand(intent, Prefs.duckLevel(this@ListeningService), 100)
-                }
-                router.broadcast(cmd)
-            }
-        }
-        val source = VoskTranscriptSource(models) { text -> controller.onTranscript(text) }
-        if (source.available) {
-            voice = source
-            val voskExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-                Thread(r, "sonex-vosk")
-            }
-            val busy = java.util.concurrent.atomic.AtomicBoolean(false)
-            engine.pcmTap = { buf, n ->
-                // Never block the mic thread: hand a copy to the decoder and
-                // drop frames while it's busy (speech recognisers cope fine).
-                if (busy.compareAndSet(false, true)) {
-                    val copy = buf.copyOf(n)
-                    voskExecutor.execute {
-                        try { source.accept(copy, n) } finally { busy.set(false) }
-                    }
-                }
-            }
-        }
     }
 
     private fun onState(state: RoomState, db: Double) {
@@ -244,34 +172,6 @@ class ListeningService : Service() {
         } // else: the engine will restore once the room actually goes quiet.
     }
 
-    /** Short acknowledge chirp, like "OK Google". */
-    private fun playWakeTone() {
-        runCatching {
-            val tone = android.media.ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85)
-            tone.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 180)
-            scope.launch { kotlinx.coroutines.delay(400); runCatching { tone.release() } }
-        }
-    }
-
-    /** Heads-up "listening" cue that works even when the app isn't open. */
-    private fun showWakeNotification() {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (nm.getNotificationChannel(WAKE_CHANNEL) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(WAKE_CHANNEL, "SoNex wake word", NotificationManager.IMPORTANCE_HIGH)
-                    .apply { setSound(null, null) } // we already chirped
-            )
-        }
-        nm.notify(2, NotificationCompat.Builder(this, WAKE_CHANNEL)
-            .setContentTitle("🎙 SoNex is listening…")
-            .setContentText("Say a command — \"lower volume\", \"stop\", \"awaaz kam karo\"")
-            .setSmallIcon(R.drawable.ic_mic)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setTimeoutAfter(8_000)
-            .setAutoCancel(true)
-            .build())
-    }
-
     private fun buildNotification(state: RoomState): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL) == null) {
@@ -310,7 +210,6 @@ class ListeningService : Service() {
         running.value = false
         stateFlow.value = RoomState.QUIET to -60.0
         engine?.stop()
-        voice?.close()
         callMonitor?.stop()
         scope.cancel()
         super.onDestroy()
