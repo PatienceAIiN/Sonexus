@@ -110,6 +110,15 @@ async def test_sonex_web_pwa_served(client):
     assert "SoNex Web" in landing and "/app/" in landing
     page = await client.get("/app/")
     assert page.status_code == 200 and "manifest.webmanifest" in page.text and "getUserMedia" in page.text
+    assert "Demo player" not in page.text and "Live room state" not in page.text
+    assert "SoNex TV" in page.text and "Bluetooth" in page.text and "Cast" in page.text
+    assert "Log out?" in page.text and 'class="eye"' in page.text
+    # Full app parity surface
+    for feature in ["Calibrate", "Forgot password", "Change password", "Send feedback",
+                    "Delete my data", "Room size", "each source", "serviceWorker",
+                    "getUserMedia", "WHISPER", "v1/auth/verify", "v1/auth/reset",
+                    "v1/feedback", "v1/data/delete", "v1/consents", "v1/devices/register"]:
+        assert feature in page.text, f"web app missing: {feature}"
     assert (await client.get("/app/manifest.webmanifest")).status_code == 200
     assert (await client.get("/app/sw.js")).status_code == 200
     assert (await client.get("/app/icon.svg")).status_code == 200

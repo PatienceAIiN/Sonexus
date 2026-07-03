@@ -1,5 +1,5 @@
 // SoNex Web: offline-capable shell (cache-first for the app, network for API).
-const CACHE = "sonex-web-v1";
+const CACHE = "sonex-web-v2";
 const SHELL = ["/app/", "/app/index.html", "/app/manifest.webmanifest", "/app/icon.svg"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

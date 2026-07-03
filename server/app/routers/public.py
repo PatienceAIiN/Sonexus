@@ -348,7 +348,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
-    ("2.2", "Meet SoNex Web — use SoNex right in your browser, installable as an app. Plus a brand-new live animation on the home screen that dances while SoNex listens."),
+    ("2.2", "Meet SoNex Web — SoNex in your browser, installable as an app: live listening on whatever device you open it on, per-source rules for Bluetooth, Cast and TV, dark mode, and the same look you know. Plus a brand-new live animation on the phone home screen."),
     ("2.1", "Sharper focus: SoNex now puts everything into flawless automatic volume — leaner, smaller and noticeably snappier. Cleaner home screen too."),
     ("2.0", "Voice volume now shows the on-screen slider gliding on phone and TV. Voice reacts in a blink. Clearer status when the mic is off."),
     ("1.9", "TV pairing fix. TV app is now light-themed. Friendlier error messages. What's-new page (you're reading it)."),
@@ -367,9 +367,28 @@ CHANGELOG = [
 @router.get("/changelog", response_class=HTMLResponse)
 async def changelog():
     items = "".join(
-        f"<h2>v{v}</h2><p>{note}</p>" for v, note in CHANGELOG
+        f'<div class="cl-item"><h2>v{v}</h2><p>{note}</p></div>' for v, note in CHANGELOG
     )
-    return _legal_page("What's new", items)
+    pager = """
+<div id="pager" style="display:flex;gap:12px;align-items:center;margin-top:26px">
+ <button id="prev" style="padding:9px 18px;border-radius:9px;border:1.5px solid #7C4DFF;background:#fff;color:#7C4DFF;cursor:pointer">← Newer</button>
+ <span id="pinfo" style="color:#5f6368;font-size:.9rem"></span>
+ <button id="next" style="padding:9px 18px;border-radius:9px;border:1.5px solid #7C4DFF;background:#fff;color:#7C4DFF;cursor:pointer">Older →</button>
+</div>
+<script>
+const PER=5,items=[...document.querySelectorAll('.cl-item')];let page=0;
+const pages=Math.max(1,Math.ceil(items.length/PER));
+function render(){
+ items.forEach((el,i)=>el.style.display=(i>=page*PER&&i<(page+1)*PER)?'block':'none');
+ document.getElementById('pinfo').textContent=`Page ${page+1} of ${pages}`;
+ document.getElementById('prev').style.visibility=page>0?'visible':'hidden';
+ document.getElementById('next').style.visibility=page<pages-1?'visible':'hidden';
+ window.scrollTo({top:0,behavior:'smooth'})}
+document.getElementById('prev').onclick=()=>{page--;render()};
+document.getElementById('next').onclick=()=>{page++;render()};
+render();
+</script>"""
+    return _legal_page("What's new", items + pager)
 
 
 @router.get("/terms", response_class=HTMLResponse)
