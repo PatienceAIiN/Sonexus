@@ -348,6 +348,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("2.4", "One login, everywhere: change a setting on your phone and SoNex Web follows within seconds - and vice versa. The web now shows the app's live animation, and browser back works naturally."),
     ("2.3", "Pair your TV straight from SoNex Web and control it from any network — no app needed. Smarter theme button too."),
     ("2.2", "Meet SoNex Web — SoNex in your browser, installable as an app: live listening on whatever device you open it on, per-source rules for Bluetooth, Cast and TV, dark mode, and the same look you know. Plus a brand-new live animation on the phone home screen."),
     ("2.1", "Sharper focus: SoNex now puts everything into flawless automatic volume — leaner, smaller and noticeably snappier. Cleaner home screen too."),
