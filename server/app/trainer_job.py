@@ -29,7 +29,7 @@ _CLASS_IDX = {c: i for i, c in enumerate(training.CLASSES)}
 
 
 def _features_from_wav(data: bytes) -> list[float] | None:
-    """Extract [level-over-floor dB, ZCR, modulation swing dB] from a WAV clip.
+    """Extract [level-over-floor dB, ZCR, swing dB, ZCR-flux] from a WAV clip.
     Pure stdlib (wave/array) — no numpy. Returns None for anything unreadable."""
     try:
         w = wave.open(io.BytesIO(data), "rb")
@@ -68,8 +68,11 @@ def _features_from_wav(data: bytes) -> list[float] | None:
         med = srt[len(srt) // 2]
         p90 = srt[int(len(srt) * 0.9) - 1] if len(srt) > 1 else srt[-1]
         p10 = srt[int(len(srt) * 0.1)]
-        zcr = sorted(zcrs)[len(zcrs) // 2]
-        return [max(0.0, med - floor), zcr, max(0.0, p90 - p10)]
+        zsrt = sorted(zcrs)
+        zcr = zsrt[len(zsrt) // 2]
+        # ZCR-flux: p90-p10 spread of per-frame ZCR — the masking-robust cue.
+        zflux = (zsrt[int(len(zsrt) * 0.9) - 1] if len(zsrt) > 1 else zsrt[-1]) - zsrt[int(len(zsrt) * 0.1)]
+        return [max(0.0, med - floor), zcr, max(0.0, p90 - p10), max(0.0, zflux)]
     except Exception:
         return None
 
@@ -107,7 +110,8 @@ async def train_and_publish(db: AsyncSession) -> dict:
     for e in events:
         ci = _CLASS_IDX.get((e.room_state or "").upper())
         if ci is not None:
-            extra.append(([max(0.0, (e.db or -60.0) + 55.0), 0.2, 8.0], ci))
+            # No audio stored for events; use a neutral mid ZCR-flux placeholder.
+            extra.append(([max(0.0, (e.db or -60.0) + 55.0), 0.2, 8.0, 0.05], ci))
 
     model = training.train(extra_samples=extra or None)
     accuracy = float(model["accuracy"])

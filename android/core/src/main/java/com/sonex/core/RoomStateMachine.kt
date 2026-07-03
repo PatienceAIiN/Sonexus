@@ -102,14 +102,20 @@ class RoomStateMachine(
             /** p90-p10 level swing over ~1s: speech pulses, machinery doesn't. */
             dbSwingDb: Double = 99.0,
             /** Whispers are unvoiced (higher ZCR); defaults to speechShaped. */
-            whisperShaped: Boolean = speechShaped
+            whisperShaped: Boolean = speechShaped,
+            /** p90-p10 fluctuation of ZCR over ~1s: a talker's varies, a machine's
+             *  doesn't — level-independent, so it survives loud-machine masking. */
+            zcrFluxRatio: Double = 0.0
         ): FrameKind {
             val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
             // A cooler/fan/motor can mimic speech's zero-crossing band, but it
             // holds a near-constant level. Steady => interference noise:
             // BOOST over it, never duck for it.
             val steady = dbSwingDb < ModulationTracker.STEADY_SWING_DB
-            val talksLikeAPerson = speechShaped && !steady
+            // A person is voice-shaped AND changing — either in level (normal) OR
+            // in ZCR (still detectable when a loud machine flattens the level).
+            val changing = !steady || zcrFluxRatio >= ZcrTracker.SPEECH_FLUX
+            val talksLikeAPerson = speechShaped && changing
             // A clearly UNVOICED sound (breathy, high zero-crossing, not steady
             // machinery) is a whisper even when it's loud — this is what stops
             // "I whispered but it showed Talking". It never becomes SPEECH.

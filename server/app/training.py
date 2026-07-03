@@ -23,33 +23,35 @@ import math
 import random
 
 CLASSES = ["QUIET", "SPEECH", "NOISE", "WHISPER"]
-# Raw features the phone measures, then two engineered flags that make the linear
-# model far more accurate (they encode the non-linear cues the heuristic used):
-#   voiced_band = 1 if ZCR is in the voiced-speech band, steady = 1 if barely modulated.
-FEATURES = ["rms_over_floor_db", "zcr", "swing_db", "voiced_band", "steady"]
+# Raw features the phone measures, then two engineered flags. zcr_flux (ZCR
+# fluctuation over ~1s) is the MASKING-ROBUST cue: a talker's ZCR jumps around
+# even when a loud steady machine hides the level, a machine's doesn't.
+#   voiced_band = 1 if ZCR is in the voiced band; modulated = level swings OR ZCR fluctuates.
+FEATURES = ["rms_over_floor_db", "zcr", "swing_db", "zcr_flux", "voiced_band", "modulated"]
 STEADY_SWING = 5.0
+SPEECH_FLUX = 0.04
 
 
-def expand(f3: list[float]) -> list[float]:
-    """Raw [rms_over_floor, zcr, swing] -> 5-feature vector. MUST match Kotlin LinearVad."""
-    rms, zcr, swing = f3[0], f3[1], f3[2]
+def expand(f4: list[float]) -> list[float]:
+    """Raw [rms_over_floor, zcr, swing, zcr_flux] -> 6-feature vector. MUST match Kotlin LinearVad."""
+    rms, zcr, swing, flux = f4[0], f4[1], f4[2], f4[3]
     voiced = 1.0 if 0.05 <= zcr <= 0.35 else 0.0
-    steady = 1.0 if swing < STEADY_SWING else 0.0
-    return [rms, zcr, swing, voiced, steady]
+    modulated = 1.0 if (swing >= STEADY_SWING or flux >= SPEECH_FLUX) else 0.0
+    return [rms, zcr, swing, flux, voiced, modulated]
 
 # Acoustic priors distilled from the open datasets listed in the admin panel
 # (Common Voice/LibriSpeech = voiced speech; MUSAN/ESC-50/AudioSet = machines &
 # ambient; CHiME/whisper sets = unvoiced whisper). Each entry: feature ranges the
 # class typically occupies. Sampled to seed training before real clips exist.
 _PRIORS = {
-    # quiet room / hiss: barely above floor, any ZCR, no modulation
-    "QUIET":   {"rms": (0.0, 6.0),   "zcr": (0.02, 0.55), "swing": (0.0, 3.0)},
-    # a person talking: well above floor, voice-band ZCR, strongly modulated
-    "SPEECH":  {"rms": (12.0, 42.0), "zcr": (0.05, 0.35), "swing": (5.0, 22.0)},
-    # cooler / fan / motor / vehicle: loud but STEADY (low swing), or non-vocal ZCR
-    "NOISE":   {"rms": (12.0, 46.0), "zcr": (0.0, 0.6),   "swing": (0.0, 4.0)},
-    # whisper: soft, breathy (higher ZCR), gently modulated
-    "WHISPER": {"rms": (6.0, 15.0),  "zcr": (0.12, 0.55), "swing": (2.0, 8.0)},
+    # quiet room / hiss: barely above floor, any ZCR, no modulation, flat ZCR
+    "QUIET":   {"rms": (0.0, 6.0),   "zcr": (0.02, 0.55), "swing": (0.0, 3.0),  "flux": (0.0, 0.02)},
+    # a person talking: well above floor, voice-band ZCR, modulated, ZCR fluctuates
+    "SPEECH":  {"rms": (12.0, 42.0), "zcr": (0.05, 0.35), "swing": (5.0, 22.0), "flux": (0.05, 0.22)},
+    # cooler / fan / motor / vehicle: loud but STEADY level AND steady ZCR (low flux)
+    "NOISE":   {"rms": (12.0, 46.0), "zcr": (0.0, 0.6),   "swing": (0.0, 4.0),  "flux": (0.0, 0.025)},
+    # whisper: soft, breathy (higher ZCR), gently modulated, some ZCR flux
+    "WHISPER": {"rms": (6.0, 15.0),  "zcr": (0.12, 0.55), "swing": (2.0, 8.0),  "flux": (0.03, 0.12)},
 }
 
 
@@ -62,11 +64,18 @@ def _sample_priors(per_class: int, seed: int = 7) -> list[tuple[list[float], int
             rms = rng.uniform(*p["rms"])
             zcr = rng.uniform(*p["zcr"])
             swing = rng.uniform(*p["swing"])
-            # NOISE also covers loud non-vocal sounds that DO modulate (vehicles):
+            flux = rng.uniform(*p["flux"])
+            # NOISE also covers loud non-vocal sounds that DO modulate (vehicles),
+            # but their ZCR still doesn't fluctuate like speech:
             if cls == "NOISE" and rng.random() < 0.35:
                 swing = rng.uniform(4.0, 18.0)
                 zcr = rng.uniform(0.0, 0.05) if rng.random() < 0.5 else rng.uniform(0.45, 0.65)
-            out.append(([rms, zcr, swing], ci))
+            # MASKED SPEECH: a loud steady machine flattens the level (low swing),
+            # but the talker's ZCR still fluctuates — teach the model to catch it.
+            if cls == "SPEECH" and rng.random() < 0.4:
+                swing = rng.uniform(0.0, 4.0)
+                flux = rng.uniform(0.06, 0.22)
+            out.append(([rms, zcr, swing, flux], ci))
     return out
 
 

@@ -36,12 +36,14 @@ data class LinearVad(
         get() = weights.isNotEmpty() && weights.size == classes.size &&
             bias.size == classes.size && weights.all { it.size == NUM_FEATURES }
 
-    /** Build the standardised feature vector for one frame. Raw 3 measurements
-     *  are expanded to 5 engineered features — MUST match server training.expand(). */
-    private fun features(rmsOverFloorDb: Double, zcr: Double, swingDb: Double): DoubleArray {
+    /** Build the standardised feature vector for one frame. Raw 4 measurements
+     *  are expanded to 6 engineered features — MUST match server training.expand(). */
+    private fun features(rmsOverFloorDb: Double, zcr: Double, swingDb: Double, zcrFlux: Double): DoubleArray {
         val voiced = if (zcr in 0.05..0.35) 1.0 else 0.0
-        val steady = if (swingDb < ModulationTracker.STEADY_SWING_DB) 1.0 else 0.0
-        val raw = doubleArrayOf(rmsOverFloorDb, zcr, swingDb, voiced, steady)
+        // "changing" — level swings OR ZCR fluctuates (masking-robust person cue).
+        val modulated = if (swingDb >= ModulationTracker.STEADY_SWING_DB ||
+            zcrFlux >= ZcrTracker.SPEECH_FLUX) 1.0 else 0.0
+        val raw = doubleArrayOf(rmsOverFloorDb, zcr, swingDb, zcrFlux, voiced, modulated)
         if (mean.size == NUM_FEATURES && std.size == NUM_FEATURES) {
             for (i in raw.indices) {
                 val s = std[i]; if (s > 1e-9) raw[i] = (raw[i] - mean[i]) / s
@@ -51,8 +53,8 @@ data class LinearVad(
     }
 
     /** Softmax probabilities per class, in [classes] order. */
-    fun probabilities(rmsOverFloorDb: Double, zcr: Double, swingDb: Double): DoubleArray {
-        val f = features(rmsOverFloorDb, zcr, swingDb)
+    fun probabilities(rmsOverFloorDb: Double, zcr: Double, swingDb: Double, zcrFlux: Double): DoubleArray {
+        val f = features(rmsOverFloorDb, zcr, swingDb, zcrFlux)
         val logits = DoubleArray(classes.size) { c ->
             var s = bias[c]
             val w = weights[c]
@@ -67,15 +69,15 @@ data class LinearVad(
     }
 
     /** Winning label + its probability. */
-    fun predict(rmsOverFloorDb: Double, zcr: Double, swingDb: Double): Pair<String, Double> {
-        val p = probabilities(rmsOverFloorDb, zcr, swingDb)
+    fun predict(rmsOverFloorDb: Double, zcr: Double, swingDb: Double, zcrFlux: Double): Pair<String, Double> {
+        val p = probabilities(rmsOverFloorDb, zcr, swingDb, zcrFlux)
         var best = 0
         for (i in p.indices) if (p[i] > p[best]) best = i
         return classes[best] to p[best]
     }
 
     companion object {
-        const val NUM_FEATURES = 5   // rms-over-floor, zcr, swing, voiced-band, steady
+        const val NUM_FEATURES = 6   // rms-over-floor, zcr, swing, zcr-flux, voiced-band, modulated
 
         fun labelToKind(label: String): FrameKind = when (label) {
             "SPEECH" -> FrameKind.SPEECH

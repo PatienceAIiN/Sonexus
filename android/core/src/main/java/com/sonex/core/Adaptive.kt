@@ -218,3 +218,29 @@ class ModulationTracker(private val window: Int = 34) {
         const val MIN_WHISPER_SWING_DB = 2.5
     }
 }
+
+/**
+ * Masking-robust speech cue: the fluctuation of the zero-crossing rate over ~1s.
+ * A person alternates voiced vowels and unvoiced consonants, so their ZCR jumps
+ * around; a cooler/fan/motor holds a near-constant spectrum, so its ZCR barely
+ * moves. Crucially ZCR is a RATIO (level-independent), so this still detects a
+ * talker even when a loud steady machine dominates the volume — the case plain
+ * level-swing misses. Returns the p90-p10 spread of recent ZCRs.
+ */
+class ZcrTracker(private val window: Int = 34) {
+    private val ring = ArrayDeque<Double>()
+
+    fun update(zcr: Double): Double {
+        ring.addLast(zcr)
+        if (ring.size > window) ring.removeFirst()
+        if (ring.size < 10) return 0.0 // warming up: don't claim speech yet
+        val sorted = ring.sorted()
+        return sorted[((sorted.size * 9) / 10 - 1).coerceAtLeast(0)] - sorted[sorted.size / 10]
+    }
+
+    companion object {
+        /** Above this ZCR fluctuation a voice-shaped sound is a person talking,
+         *  even if its level looks steady because a loud machine is masking it. */
+        const val SPEECH_FLUX = 0.04
+    }
+}

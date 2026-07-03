@@ -35,6 +35,7 @@ class LiteClassifier(
     )
     private val baseFloor = calibration.noiseFloorDb
     private val modulation = ModulationTracker()
+    private val zcrFlux = com.sonex.core.ZcrTracker()
 
     /** Below this confidence we trust the heuristic instead of the model. */
     private val minConfidence = 0.45
@@ -45,8 +46,9 @@ class LiteClassifier(
         val rmsOverFloor = db - floor
         val zcr = Dsp.zeroCrossingRate(buf, n)
         val swing = modulation.update(db)
+        val flux = zcrFlux.update(zcr)
 
-        val (label, prob) = m.predict(rmsOverFloor, zcr, swing)
+        val (label, prob) = m.predict(rmsOverFloor, zcr, swing, flux)
         var kind = if (prob < minConfidence) fallback.classify(buf, n, db)
         else LinearVad.labelToKind(label)
 

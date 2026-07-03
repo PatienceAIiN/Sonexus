@@ -27,6 +27,7 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
     )
     private var lastKind = FrameKind.QUIET
     private val modulation = com.sonex.core.ModulationTracker()
+    private val zcrFlux = com.sonex.core.ZcrTracker()
 
     override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
         val kind = RoomStateMachine.classify(
@@ -37,7 +38,8 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
             inSpeechState = lastKind == FrameKind.SPEECH,
             noiseFloorDb = noiseFloor + adapter.shiftDb,
             dbSwingDb = modulation.update(db),
-            whisperShaped = Dsp.isWhisperShaped(buf, n)
+            whisperShaped = Dsp.isWhisperShaped(buf, n),
+            zcrFluxRatio = zcrFlux.update(Dsp.zeroCrossingRate(buf, n))
         )
         adapter.observe(db, kind)
         lastKind = kind

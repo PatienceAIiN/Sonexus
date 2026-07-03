@@ -165,7 +165,7 @@ async def test_web_can_fetch_active_lite_model(client, db, storage, monkeypatch)
     r = await client.get("/v1/models/lite")
     assert r.status_code == 200
     m = r.json()
-    assert m["classes"] and len(m["weights"]) == len(m["classes"]) and len(m["weights"][0]) == 5
+    assert m["classes"] and len(m["weights"]) == len(m["classes"]) and len(m["weights"][0]) == 6
 
 
 async def test_admin_can_list_and_play_uploaded_audio(client, db, storage, monkeypatch):

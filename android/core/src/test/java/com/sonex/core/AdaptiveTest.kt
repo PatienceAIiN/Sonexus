@@ -354,6 +354,21 @@ class GroupWhisperTest {
             RulePolicy.commandFor(RoomState.TALKING, TargetRule.DUCK, 30, 100)!!.action)
     }
 
+    @org.junit.Test fun speech_masked_by_a_loud_machine_still_ducks() {
+        // A loud cooler flattens the LEVEL (swing looks steady), so level-swing
+        // alone would call it NOISE. But the talker's ZCR fluctuates (high flux),
+        // so it must be SPEECH — the masking fix.
+        val masked = RoomStateMachine.classify(
+            -22.0, speechShaped = true, trigger = -30.0, boostTrigger = -27.0,
+            noiseFloorDb = -55.0, dbSwingDb = 2.0, zcrFluxRatio = 0.08)
+        org.junit.Assert.assertEquals(FrameKind.SPEECH, masked)
+        // Same steady level with FLAT zcr (no one talking) => NOISE (boost).
+        val machine = RoomStateMachine.classify(
+            -22.0, speechShaped = true, trigger = -30.0, boostTrigger = -27.0,
+            noiseFloorDb = -55.0, dbSwingDb = 2.0, zcrFluxRatio = 0.0)
+        org.junit.Assert.assertEquals(FrameKind.NOISE, machine)
+    }
+
     @org.junit.Test fun normal_talking_reaches_talking_and_ducks() {
         // End-to-end guard: sustained voiced speech above the trigger must reach
         // TALKING (regression cover for the "talking not detected" report).

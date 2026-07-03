@@ -5,7 +5,9 @@ the paired Android TV, Bluetooth, and Cast; when it's quiet, it restores. Loud
 non-speech noise raises volume instead. On-device ML, per-home OTA models,
 consent-first server, dev portal, and EN/HI voice control.
 
-Built per `BUILD_SONEX.md`, all 7 phases. See `docs/architecture.md`.
+Built per `BUILD_SONEX.md`, all 7 phases. See `docs/architecture.md` and
+`docs/detection-model.md` (detection features, the loud-machine masking fix via
+ZCR-flux, the self-improving OTA model, and the neural-VAD drop-in path).
 
 | Dir | What | Build / test |
 |---|---|---|
