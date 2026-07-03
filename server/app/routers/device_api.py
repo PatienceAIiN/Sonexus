@@ -1,17 +1,20 @@
 import json
+import secrets
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Response, UploadFile
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db import get_db
 from ..models import Clip, Consent, Device, Event, Label, Model, Session, User
+from pydantic import BaseModel
+
 from ..redisq import get_redis, rate_limited, set_device_state
 from ..schemas import ClipMeta, ConsentIn, EventsIn
-from ..security import get_current_device, get_device_or_user
+from ..security import get_current_device, get_current_user, get_device_or_user
 from ..storage import get_storage
 
 router = APIRouter(tags=["device"])
@@ -209,3 +212,75 @@ async def data_export(
     user_row = row(caller)
     user_row.pop("password_hash", None)
     return {"user": user_row, "labels": [row(lb) for lb in labels]}
+
+
+# ---- TV cloud relay: lets SoNex Web pair with and control a TV from any
+# network. The TV registers its pairing code and polls for queued commands;
+# the browser pairs by code and pushes commands through the server. ----
+
+class TvRegisterIn(BaseModel):
+    code: str
+    name: str = "SoNex TV"
+
+
+class TvPairIn(BaseModel):
+    code: str
+
+
+class TvCommandIn(BaseModel):
+    action: str
+    level: int = -1
+
+
+@router.post("/tv/register")
+async def tv_register(body: TvRegisterIn):
+    """TV announces its 4-digit code. Returns the key it polls with."""
+    r = get_redis()
+    tv_key = secrets.token_urlsafe(24)
+    await r.setex(f"tvcode:{body.code}", 900, tv_key)          # code valid 15 min
+    await r.setex(f"tv:{tv_key}:name", 86400, body.name)
+    return {"tv_key": tv_key}
+
+
+@router.post("/tv/pair")
+async def tv_pair(body: TvPairIn, user: User = Depends(get_current_user)):
+    """Browser submits the code shown on the TV."""
+    r = get_redis()
+    tv_key = await r.get(f"tvcode:{body.code}")
+    if not tv_key:
+        raise HTTPException(status_code=404, detail="Wrong code, or the TV code expired — reopen the TV app")
+    tv_key = tv_key.decode() if isinstance(tv_key, bytes) else tv_key
+    await r.setex(f"tv:{tv_key}:user", 86400 * 30, str(user.id))
+    await r.setex(f"user:{user.id}:tv", 86400 * 30, tv_key)
+    name = await r.get(f"tv:{tv_key}:name")
+    return {"ok": True, "tv_name": (name.decode() if isinstance(name, bytes) else name) or "SoNex TV"}
+
+
+@router.get("/tv/poll")
+async def tv_poll(x_tv_key: str | None = Header(default=None)):
+    """TV polls: am I paired, and what commands are queued?"""
+    if not x_tv_key:
+        raise HTTPException(status_code=401, detail="Missing X-Tv-Key")
+    r = get_redis()
+    paired = await r.get(f"tv:{x_tv_key}:user") is not None
+    commands = []
+    while True:
+        raw = await r.lpop(f"tv:{x_tv_key}:queue")
+        if raw is None:
+            break
+        commands.append(json.loads(raw))
+    return {"paired": paired, "commands": commands}
+
+
+@router.post("/tv/command")
+async def tv_command(body: TvCommandIn, user: User = Depends(get_current_user)):
+    """Browser sends a command to the user's paired TV."""
+    r = get_redis()
+    tv_key = await r.get(f"user:{user.id}:tv")
+    if not tv_key:
+        raise HTTPException(status_code=404, detail="No TV paired yet")
+    tv_key = tv_key.decode() if isinstance(tv_key, bytes) else tv_key
+    await r.rpush(f"tv:{tv_key}:queue",
+                  json.dumps({"action": body.action, "level": body.level, "reason": "web"}))
+    await r.ltrim(f"tv:{tv_key}:queue", -20, -1)  # never grow unbounded
+    return {"queued": True}

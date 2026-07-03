@@ -42,6 +42,7 @@ class TvServer(
 
     fun start() {
         onCode(code)
+        scope.launch { cloudRelay() }
         scope.launch {
             runCatching {
                 server = ServerSocket(Net.DEFAULT_PORT)
@@ -86,17 +87,7 @@ class TvServer(
                         }
                         is PairingProtocol.Message.Cmd -> {
                             val cmd = msg.command
-                            policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                                ?.let { target ->
-                                    // Fade, don't snap; voice commands show the TV volume bar.
-                                    val flags = if (cmd.reason == "voice") AudioManager.FLAG_SHOW_UI else 0
-                                    val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                    for (v in com.sonex.core.VolumeRamp.steps(from, target)) {
-                                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, flags)
-                                        Thread.sleep(45)
-                                    }
-                                }
-                            onStatus("Applied ${cmd.action} (${cmd.reason})")
+                            applyCommand(cmd)
                             out.println(PairingProtocol.encodeState(currentState()))
                         }
                         null -> {}
@@ -104,6 +95,65 @@ class TvServer(
                 }
             }
         }
+    }
+
+    /** Cloud relay: lets SoNex Web pair + control this TV from anywhere.
+     *  Registers the same 4-digit code, then polls for queued commands. */
+    private suspend fun cloudRelay() {
+        val base = "https://sonexus.onrender.com"
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        var tvKey: String? = null
+        while (true) {
+            runCatching {
+                if (tvKey == null) {
+                    val conn = java.net.URL("$base/v1/tv/register").openConnection() as java.net.HttpURLConnection
+                    conn.requestMethod = "POST"; conn.doOutput = true
+                    conn.connectTimeout = 8000; conn.readTimeout = 8000
+                    conn.setRequestProperty("Content-Type", "application/json")
+                    conn.outputStream.use {
+                        it.write("""{"code":"$code","name":"${tvName()}"}""".toByteArray())
+                    }
+                    if (conn.responseCode == 200) {
+                        val body = conn.inputStream.use { i -> i.readBytes().decodeToString() }
+                        tvKey = json.parseToJsonElement(body)
+                            .let { it as kotlinx.serialization.json.JsonObject }["tv_key"]
+                            ?.let { (it as kotlinx.serialization.json.JsonPrimitive).content }
+                    }
+                    conn.disconnect()
+                } else {
+                    val conn = java.net.URL("$base/v1/tv/poll").openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 8000; conn.readTimeout = 8000
+                    conn.setRequestProperty("X-Tv-Key", tvKey)
+                    if (conn.responseCode == 200) {
+                        val body = conn.inputStream.use { i -> i.readBytes().decodeToString() }
+                        val obj = json.parseToJsonElement(body) as kotlinx.serialization.json.JsonObject
+                        val paired = (obj["paired"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+                        if (paired && pairedPhone == null) { pairedPhone = "SoNex Web"; onStatus("Paired with SoNex Web") }
+                        (obj["commands"] as? kotlinx.serialization.json.JsonArray)?.forEach { el ->
+                            runCatching {
+                                applyCommand(json.decodeFromJsonElement(
+                                    com.sonex.core.Command.serializer(), el))
+                            }
+                        }
+                    } else if (conn.responseCode == 401) tvKey = null
+                    conn.disconnect()
+                }
+            }
+            kotlinx.coroutines.delay(2000)
+        }
+    }
+
+    private fun applyCommand(cmd: com.sonex.core.Command) {
+        policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
+            ?.let { target ->
+                val flags = if (cmd.reason == "voice" || cmd.reason == "web") AudioManager.FLAG_SHOW_UI else 0
+                val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+                for (v in com.sonex.core.VolumeRamp.steps(from, target)) {
+                    audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, flags)
+                    Thread.sleep(45)
+                }
+            }
+        onStatus("Applied ${cmd.action} (${cmd.reason})")
     }
 
     private fun currentState() = TvState(

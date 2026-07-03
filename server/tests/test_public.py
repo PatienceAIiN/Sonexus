@@ -117,8 +117,28 @@ async def test_sonex_web_pwa_served(client):
     for feature in ["Calibrate", "Forgot password", "Change password", "Send feedback",
                     "Delete my data", "Room size", "each source", "serviceWorker",
                     "getUserMedia", "WHISPER", "v1/auth/verify", "v1/auth/reset",
-                    "v1/feedback", "v1/data/delete", "v1/consents", "v1/devices/register"]:
+                    "v1/feedback", "v1/data/delete", "v1/consents", "v1/devices/register", "v1/tv/pair", "v1/tv/command", "Pair your TV"]:
         assert feature in page.text, f"web app missing: {feature}"
     assert (await client.get("/app/manifest.webmanifest")).status_code == 200
     assert (await client.get("/app/sw.js")).status_code == 200
     assert (await client.get("/app/icon.svg")).status_code == 200
+
+
+async def test_tv_cloud_relay_pair_and_command(client, db):
+    from .conftest import login
+    auth = await login(client, db, "tvweb@sonex.test", "longenough8")
+    # TV registers its code
+    reg = await client.post("/v1/tv/register", json={"code": "4321", "name": "Bravia"})
+    key = reg.json()["tv_key"]
+    hdr = {"X-Tv-Key": key}
+    assert (await client.get("/v1/tv/poll", headers=hdr)).json()["paired"] is False
+    # Wrong code rejected; right code pairs
+    assert (await client.post("/v1/tv/pair", json={"code": "0000"}, headers=auth)).status_code == 404
+    ok = await client.post("/v1/tv/pair", json={"code": "4321"}, headers=auth)
+    assert ok.status_code == 200 and ok.json()["tv_name"] == "Bravia"
+    assert (await client.get("/v1/tv/poll", headers=hdr)).json()["paired"] is True
+    # Web queues a command; TV receives it exactly once
+    assert (await client.post("/v1/tv/command", json={"action": "DUCK", "level": 30}, headers=auth)).status_code == 200
+    cmds = (await client.get("/v1/tv/poll", headers=hdr)).json()["commands"]
+    assert cmds == [{"action": "DUCK", "level": 30, "reason": "web"}]
+    assert (await client.get("/v1/tv/poll", headers=hdr)).json()["commands"] == []
