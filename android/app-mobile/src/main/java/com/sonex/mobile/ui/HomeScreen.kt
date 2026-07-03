@@ -64,6 +64,7 @@ fun HomeScreen(
         RoomState.TALKING -> StateColors.talking
         RoomState.BOOST -> StateColors.boost
         RoomState.WHISPER -> StateColors.whisper
+        RoomState.WHISPER_GROUP -> StateColors.whisper
     }
     val orbColor by animateColorAsState(target, tween(500), label = "orb")
 
@@ -148,6 +149,7 @@ fun HomeScreen(
                     state == RoomState.TALKING -> "Talking — volume lowered"
                     state == RoomState.BOOST -> "Loud room — volume raised"
                     state == RoomState.WHISPER -> "Whispering 🤫 — volume untouched"
+                    state == RoomState.WHISPER_GROUP -> "Whispering 🤫 — volume eased down"
                     else -> "Listening"
                 },
                 style = MaterialTheme.typography.headlineMedium,
@@ -166,9 +168,12 @@ fun HomeScreen(
                     onClick = {
                         if (listening) {
                             Prefs.setListeningEnabled(ctx, false)
+                            // Manual Stop wins over auto-start until Wi-Fi is rejoined.
+                            Prefs.setAutoStartSuppressed(ctx, true)
                             ctx.stopService(android.content.Intent(ctx, ListeningService::class.java))
                         } else {
                             Prefs.setListeningEnabled(ctx, true)
+                            Prefs.setAutoStartSuppressed(ctx, false)
                             onEnsureMic()
                         }
                     },

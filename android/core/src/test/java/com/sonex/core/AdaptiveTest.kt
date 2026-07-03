@@ -154,14 +154,14 @@ class HysteresisTest {
         // -32dB is below the -30 trigger but inside the 3dB exit band.
         assertEquals(FrameKind.SPEECH,
             RoomStateMachine.classify(-32.0, true, -30.0, -27.0, inSpeechState = true))
-        assertEquals("not yet speaking => soft speech is a whisper, never a duck",
+        assertEquals("not yet speaking => soft speech is a solo whisper, never a duck",
             FrameKind.WHISPER,
-            RoomStateMachine.classify(-32.0, true, -30.0, -27.0, inSpeechState = false, noiseFloorDb = -55.0))
+            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, inSpeechState = false, noiseFloorDb = -55.0))
     }
 
     @Test fun below_the_exit_band_speech_becomes_whisper_not_talking() {
         assertEquals(FrameKind.WHISPER,
-            RoomStateMachine.classify(-34.0, true, -30.0, -27.0, inSpeechState = true, noiseFloorDb = -55.0))
+            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, inSpeechState = true, noiseFloorDb = -55.0))
     }
 }
 
@@ -177,12 +177,12 @@ class RoomPresetTest {
 
 class WhisperTest {
     @org.junit.Test fun soft_speech_classifies_as_whisper_not_quiet() {
-        // Speech-shaped, above floor+6 but below trigger => whisper band.
+        // Speech-shaped, just above floor+6 but below floor+12 => solo whisper.
         org.junit.Assert.assertEquals(FrameKind.WHISPER,
-            RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
+            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
         // Non-speech at the same level stays quiet.
         org.junit.Assert.assertEquals(FrameKind.QUIET,
-            RoomStateMachine.classify(-40.0, false, -30.0, -27.0, noiseFloorDb = -55.0))
+            RoomStateMachine.classify(-46.0, false, -30.0, -27.0, noiseFloorDb = -55.0))
         // Near-silence is quiet even if speech-shaped (mic hiss).
         org.junit.Assert.assertEquals(FrameKind.QUIET,
             RoomStateMachine.classify(-52.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
@@ -269,11 +269,50 @@ class MachineNoiseTest {
     }
 
     @org.junit.Test fun whispering_still_holds_never_boosts() {
-        // Whisper: soft AND modulated => WHISPER (hold), and RulePolicy sends nothing.
-        val k = RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 9.0)
+        // Solo whisper: soft AND modulated, low in the band => WHISPER (hold).
+        val k = RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 9.0)
         org.junit.Assert.assertEquals(FrameKind.WHISPER, k)
         TargetRule.entries.forEach {
             org.junit.Assert.assertNull(RulePolicy.commandFor(RoomState.WHISPER, it, 30, 100))
         }
+    }
+}
+
+class GroupWhisperTest {
+    // floor -55: solo band floor+6..+12 = -49..-43; group band +12..trigger = -43..-30.
+    @org.junit.Test fun louder_whisper_is_group_whisper() {
+        org.junit.Assert.assertEquals("one soft breath => solo whisper", FrameKind.WHISPER,
+            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 6.0))
+        org.junit.Assert.assertEquals("several hushed voices => group whisper", FrameKind.WHISPER_GROUP,
+            RoomStateMachine.classify(-38.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 6.0))
+    }
+
+    @org.junit.Test fun group_whisper_eases_volume_solo_holds() {
+        // Solo whisper never sends a command; group whisper sends a small duck.
+        TargetRule.entries.forEach {
+            org.junit.Assert.assertNull(RulePolicy.commandFor(RoomState.WHISPER, it, 30, 100))
+        }
+        val cmd = RulePolicy.commandFor(RoomState.WHISPER_GROUP, TargetRule.DUCK, 40, 100)!!
+        org.junit.Assert.assertEquals(Action.DUCK, cmd.action)
+        org.junit.Assert.assertEquals(20, cmd.level)           // half of 40, clamped 10..30
+        org.junit.Assert.assertEquals("whisper", cmd.reason)
+        // Small duck is bounded even for a big duck setting.
+        org.junit.Assert.assertEquals(30, RulePolicy.commandFor(RoomState.WHISPER_GROUP, TargetRule.MUTE, 80, 100)!!.level)
+        // Paused devices stay paused-silent, not nudged.
+        org.junit.Assert.assertNull(RulePolicy.commandFor(RoomState.WHISPER_GROUP, TargetRule.PAUSE, 40, 100))
+    }
+
+    @org.junit.Test fun sustained_group_whisper_enters_group_state() {
+        val m = RoomStateMachine(talkOnFrames = 3, quietOffFrames = 10)
+        repeat(2) { m.step(FrameKind.WHISPER_GROUP) }
+        org.junit.Assert.assertEquals(RoomState.WHISPER_GROUP, m.step(FrameKind.WHISPER_GROUP))
+    }
+
+    @org.junit.Test fun unvoiced_whisper_is_caught_by_the_wider_band() {
+        // A breathy whisper has HIGHER zcr than voiced speech: speechShaped=false
+        // but whisperShaped=true must still register as a whisper, not silence.
+        org.junit.Assert.assertEquals(FrameKind.WHISPER,
+            RoomStateMachine.classify(-46.0, speechShaped = false, trigger = -30.0, boostTrigger = -27.0,
+                noiseFloorDb = -55.0, dbSwingDb = 6.0, whisperShaped = true))
     }
 }

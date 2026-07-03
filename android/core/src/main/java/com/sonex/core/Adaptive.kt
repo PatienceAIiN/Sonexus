@@ -204,13 +204,17 @@ class ModulationTracker(private val window: Int = 34) {
     fun update(db: Double): Double {
         ring.addLast(db)
         if (ring.size > window) ring.removeFirst()
-        if (ring.size < window / 2) return 99.0 // not enough data: don't reclassify yet
+        // Report early (10 frames ~ 0.3s): the duck decision fires around
+        // frame 17, so waiting half the window let machine noise duck first.
+        if (ring.size < 10) return 99.0
         val sorted = ring.sorted()
-        return sorted[(sorted.size * 9) / 10 - 1] - sorted[sorted.size / 10]
+        return sorted[((sorted.size * 9) / 10 - 1).coerceAtLeast(0)] - sorted[sorted.size / 10]
     }
 
     companion object {
         /** Below this swing a "speech-shaped" sound is machinery, not a person. */
-        const val STEADY_SWING_DB = 4.0
+        const val STEADY_SWING_DB = 5.0
+        /** Whispers still modulate a little; flat hum doesn't even do this. */
+        const val MIN_WHISPER_SWING_DB = 2.5
     }
 }

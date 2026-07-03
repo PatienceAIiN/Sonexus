@@ -164,4 +164,19 @@ class MainActivity : ComponentActivity() {
     private fun startListening() {
         ContextCompat.startForegroundService(this, Intent(this, ListeningService::class.java))
     }
+
+    // Fully-automatic start: follow the paired TV onto its Wi-Fi.
+    private var netCb: android.net.ConnectivityManager.NetworkCallback? = null
+
+    override fun onResume() {
+        super.onResume()
+        netCb = com.sonex.mobile.network.AutoStart.register(this)
+        com.sonex.mobile.network.AutoStart.maybeStart(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        netCb?.let { com.sonex.mobile.network.AutoStart.unregister(this, it) }
+        netCb = null
+    }
 }

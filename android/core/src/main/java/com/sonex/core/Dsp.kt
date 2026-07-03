@@ -34,4 +34,11 @@ object Dsp {
      */
     fun isSpeechShaped(buf: ShortArray, n: Int = buf.size): Boolean =
         zeroCrossingRate(buf, n) in 0.05..0.35
+
+    /**
+     * Whispers are UNVOICED — all breath, no vocal-cord tone — so their ZCR
+     * sits higher than voiced speech. A separate, wider band catches them.
+     */
+    fun isWhisperShaped(buf: ShortArray, n: Int = buf.size): Boolean =
+        zeroCrossingRate(buf, n) in 0.12..0.50
 }

@@ -30,7 +30,14 @@ object RulePolicy {
                 TargetRule.PAUSE -> Command(Action.RESUME, reason = "quiet")
                 else -> Command(Action.RESTORE, reason = "quiet")
             }
-            // Whispering means "already being considerate" — change nothing.
+            // One person whispering is "already being considerate" — hold.
             RoomState.WHISPER -> null
+            // Several people whispering is a real hushed conversation: nudge
+            // the volume down a little (never a full duck/mute/pause) so it
+            // doesn't talk over them, whatever per-device rule is set.
+            RoomState.WHISPER_GROUP -> when (rule) {
+                TargetRule.PAUSE -> null // don't pause music just for a whisper
+                else -> Command(Action.DUCK, (duckPercent / 2).coerceIn(10, 30), "whisper")
+            }
         }
 }

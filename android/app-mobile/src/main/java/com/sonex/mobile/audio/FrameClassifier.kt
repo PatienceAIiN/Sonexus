@@ -36,7 +36,8 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
             boostTrigger = adapter.boostTrigger,
             inSpeechState = lastKind == FrameKind.SPEECH,
             noiseFloorDb = noiseFloor + adapter.shiftDb,
-            dbSwingDb = modulation.update(db)
+            dbSwingDb = modulation.update(db),
+            whisperShaped = Dsp.isWhisperShaped(buf, n)
         )
         adapter.observe(db, kind)
         lastKind = kind

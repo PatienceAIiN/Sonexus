@@ -1,7 +1,7 @@
 package com.sonex.core
 
 /** What a single mic frame looks like after classification. */
-enum class FrameKind { SPEECH, NOISE, QUIET, WHISPER }
+enum class FrameKind { SPEECH, NOISE, QUIET, WHISPER, WHISPER_GROUP }
 
 /**
  * The anti-flicker state machine behind the detect -> duck -> restore loop.
@@ -27,6 +27,7 @@ class RoomStateMachine(
     private var quietScore = 0
     private var boostScore = 0
     private var whisperScore = 0
+    private var whisperGroupScore = 0
 
     private val talkOn = talkOnFrames * 2   // +2 per hit => same time-to-trigger
     private val quietOff = quietOffFrames * 2
@@ -40,14 +41,20 @@ class RoomStateMachine(
 
         talkScore = leak(talkScore, kind == FrameKind.SPEECH, talkOn)
         boostScore = leak(boostScore, kind == FrameKind.NOISE, talkOn)
-        whisperScore = leak(whisperScore, kind == FrameKind.WHISPER, talkOn)
+        // Any whisper frame counts as "someone is whispering"; only the louder
+        // group-whisper frames also build the group score. When the group score
+        // drains away the state falls back to a plain (hold-everything) whisper.
+        val anyWhisper = kind == FrameKind.WHISPER || kind == FrameKind.WHISPER_GROUP
+        whisperScore = leak(whisperScore, anyWhisper, talkOn)
+        whisperGroupScore = leak(whisperGroupScore, kind == FrameKind.WHISPER_GROUP, talkOn)
         // Whispers also count toward quiet for restore purposes? No — whisper
-        // means "hold everything", so it feeds neither quiet nor talk.
+        // means "hold / barely touch", so it feeds neither quiet nor talk.
         quietScore = leak(quietScore, kind == FrameKind.QUIET, quietOff)
 
         val next = when {
             talkScore >= talkOn -> RoomState.TALKING
             boostScore >= talkOn -> RoomState.BOOST
+            whisperGroupScore >= talkOn -> RoomState.WHISPER_GROUP
             whisperScore >= talkOn -> RoomState.WHISPER
             quietScore >= quietOff -> RoomState.QUIET
             else -> state
@@ -56,10 +63,11 @@ class RoomStateMachine(
         // Entering a state drains the counters that argue for the old one,
         // so the next transition starts from a clean slate.
         when (next) {
-            RoomState.TALKING -> { quietScore = 0; boostScore = 0; whisperScore = 0 }
-            RoomState.BOOST -> { quietScore = 0; talkScore = 0; whisperScore = 0 }
-            RoomState.QUIET -> { talkScore = 0; boostScore = 0; whisperScore = 0 }
-            RoomState.WHISPER -> { quietScore = 0 }
+            RoomState.TALKING -> { quietScore = 0; boostScore = 0; whisperScore = 0; whisperGroupScore = 0 }
+            RoomState.BOOST -> { quietScore = 0; talkScore = 0; whisperScore = 0; whisperGroupScore = 0 }
+            RoomState.QUIET -> { talkScore = 0; boostScore = 0; whisperScore = 0; whisperGroupScore = 0 }
+            RoomState.WHISPER -> { quietScore = 0; talkScore = 0; boostScore = 0 }
+            RoomState.WHISPER_GROUP -> { quietScore = 0; talkScore = 0; boostScore = 0 }
         }
         state = next
         return next
@@ -75,6 +83,9 @@ class RoomStateMachine(
          *   flicker the state (enter high, exit low — classic hysteresis).
          */
         const val WHISPER_MARGIN_DB = 6.0
+        /** A whisper this far above the floor is several people, not one —
+         *  louder than a lone breath but still below normal speech. */
+        const val WHISPER_GROUP_GAP_DB = 6.0
 
         fun classify(
             db: Double,
@@ -85,7 +96,9 @@ class RoomStateMachine(
             hysteresisDb: Double = 3.0,
             noiseFloorDb: Double? = null,
             /** p90-p10 level swing over ~1s: speech pulses, machinery doesn't. */
-            dbSwingDb: Double = 99.0
+            dbSwingDb: Double = 99.0,
+            /** Whispers are unvoiced (higher ZCR); defaults to speechShaped. */
+            whisperShaped: Boolean = speechShaped
         ): FrameKind {
             val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
             // A cooler/fan/motor can mimic speech's zero-crossing band, but it
@@ -96,10 +109,14 @@ class RoomStateMachine(
             return when {
                 db > effectiveTrigger && talksLikeAPerson -> FrameKind.SPEECH
                 db > boostTrigger && (!speechShaped || steady) -> FrameKind.NOISE
-                // Whisper band: genuinely person-shaped but soft — hold volume.
-                talksLikeAPerson && noiseFloorDb != null &&
+                // Whisper band: breathy-shaped, soft, and at least slightly
+                // modulated (a flat hum isn't a person). The louder upper part
+                // of the band is several people whispering, not one.
+                whisperShaped && dbSwingDb >= ModulationTracker.MIN_WHISPER_SWING_DB &&
+                    noiseFloorDb != null &&
                     db > noiseFloorDb + WHISPER_MARGIN_DB && db <= effectiveTrigger ->
-                    FrameKind.WHISPER
+                    if (db >= noiseFloorDb + WHISPER_MARGIN_DB + WHISPER_GROUP_GAP_DB)
+                        FrameKind.WHISPER_GROUP else FrameKind.WHISPER
                 else -> FrameKind.QUIET
             }
         }

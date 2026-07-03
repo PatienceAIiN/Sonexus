@@ -110,7 +110,8 @@ class ListeningService : Service() {
         if (callActive && state == RoomState.QUIET) return
         stateFlow.value = state to db
         logEvent(state, db)
-        // WHISPER = hold everything (RulePolicy returns null anyway) — just show it.
+        // Solo WHISPER = hold everything (RulePolicy returns null anyway) — just
+        // show it. WHISPER_GROUP still routes: it gets a gentle duck.
         if (state != RoomState.WHISPER) scope.launch { router.onState(state) }
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(1, buildNotification(state))
@@ -170,6 +171,7 @@ class ListeningService : Service() {
                                  else "Someone's talking — volume lowered"
             RoomState.BOOST -> "Room got loud — volume raised"
             RoomState.WHISPER -> "Whispering — volume untouched"
+            RoomState.WHISPER_GROUP -> "Whispering — volume eased down"
             RoomState.QUIET -> "Listening · mic active"
         }
         // Tapping opens the app on the live animated state screen.

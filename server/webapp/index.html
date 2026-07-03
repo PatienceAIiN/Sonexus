@@ -122,7 +122,7 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
     <div class="dev"><span class="em">💻</span><div style="flex:1">
       <div class="nm">This device</div><div class="st"><span class="dot on"></span>Mic + speakers</div></div></div>
     <div class="dev"><span class="em">🎧</span><div style="flex:1">
-      <div class="nm">Bluetooth</div><div class="st"><span class="dot on"></span>Connected speakers just work — they follow this device's audio</div></div></div>
+      <div class="nm">Bluetooth</div><div class="st"><span class="dot off" id="btDot"></span><span id="btSt">Checking…</span></div></div></div>
     <div class="dev"><span class="em">📡</span><div style="flex:1">
       <div class="nm">Cast</div><div class="st"><span class="dot off"></span>Use Chrome's cast menu</div></div></div>
     <div class="dev"><span class="em">📺</span><div style="flex:1">
@@ -147,6 +147,12 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
   <div class="card"><h3>Response</h3>
     <p class="muted">Duck to <span id="duckVal">30</span>% when someone talks</p>
     <input id="duck" type="range" min="10" max="80" value="30">
+  </div>
+  <div class="card"><h3>Audio devices</h3>
+    <p class="muted">Which microphone SoNex listens with</p>
+    <select id="micSel" style="width:100%;padding:11px;border-radius:8px;border:1px solid #dadce0;background:#fff"></select>
+    <p class="muted" style="margin-top:12px">Where sound plays (earbuds, speakers…)</p>
+    <select id="spkSel" style="width:100%;padding:11px;border-radius:8px;border:1px solid #dadce0;background:#fff"></select>
   </div>
   <div class="card"><h3>Room size</h3>
     <span class="chip" data-r="SMALL">Small room</span><span class="chip" data-r="BEDROOM">Bedroom</span>
@@ -283,20 +289,26 @@ $("mYes").onclick=()=>{busy($("mYes"),true,"Logging out…");
  $("modal").classList.remove("on");busy($("mYes"),false,"Log out");show("auth")},400)};
 if(token)show("home");
 // ---- detection engine (port of the app's core, with hysteresis + floor guard) ----
-const COLORS={QUIET:"#0d9488",TALKING:"#FF5C7A",BOOST:"#FFB020",WHISPER:"#7C4DFF"};
+// WHISPER_GROUP shares the whisper colour — to the user it's still "whispering".
+const COLORS={QUIET:"#0d9488",TALKING:"#FF5C7A",BOOST:"#FFB020",WHISPER:"#7C4DFF",WHISPER_GROUP:"#7C4DFF"};
+const STEADY_SWING=5,MIN_WHISPER_SWING=2.5,WHISPER_GROUP_GAP=6;
 let listening=false,audioCtx=null,stream=null,state="QUIET",db=-60,inSpeech=false;
-let talkS=0,quietS=0,boostS=0,whisS=0;const TALK_ON=34,QUIET_OFF=200;
+let talkS=0,quietS=0,boostS=0,whisS=0,whisGS=0;const TALK_ON=34,QUIET_OFF=200;
 const cal={floor:-55,trigger:-30,boost:-27,shift:0};
 const ring=[];function swing(db){ring.push(db);if(ring.length>34)ring.shift();
- if(ring.length<17)return 99;const s2=[...ring].sort((a,b)=>a-b);
- return s2[Math.floor(s2.length*0.9)-1]-s2[Math.floor(s2.length*0.1)]}
-function classify(db,speechShaped){
+ if(ring.length<10)return 99;const s2=[...ring].sort((a,b)=>a-b); // report early
+ return s2[Math.max(0,Math.floor(s2.length*0.9)-1)]-s2[Math.floor(s2.length*0.1)]}
+// speechShaped = voiced ZCR band; whisperShaped = wider unvoiced band (breath).
+function classify(db,speechShaped,whisperShaped){
  const trig=cal.trigger+cal.shift-(inSpeech?3:0); // enter high, exit low
+ const sw=swing(db);
  // Steady level = machinery (cooler/fan), even if it mimics speech: BOOST, never duck.
- const steady=swing(db)<4, person=speechShaped&&!steady;
+ const steady=sw<STEADY_SWING, person=speechShaped&&!steady;
  if(db>trig&&person)return"SPEECH";
  if(db>cal.boost+cal.shift&&(!speechShaped||steady))return"NOISE";
- if(person&&db>cal.floor+cal.shift+6&&db<=trig)return"WHISPER";
+ // Whisper band: breathy + softly modulated. Louder upper part = several people.
+ if(whisperShaped&&sw>=MIN_WHISPER_SWING&&db>cal.floor+cal.shift+6&&db<=trig)
+  return db>=cal.floor+cal.shift+6+WHISPER_GROUP_GAP?"WHISPER_GROUP":"WHISPER";
  return"QUIET"}
 function observe(db,k){ // adaptive floor, capped so a silent night can't oversensitise
  if(k!=="QUIET"||db>cal.floor+12)return;
@@ -304,8 +316,10 @@ function observe(db,k){ // adaptive floor, capped so a silent night can't overse
  cal.shift=Math.max(-3,Math.min(10,cal.shift+a*(db-(cal.floor+cal.shift))))}
 function step(k){const leak=(s,hit,cap)=>hit?Math.min(cap,s+2):Math.max(0,s-1);
  talkS=leak(talkS,k==="SPEECH",TALK_ON);boostS=leak(boostS,k==="NOISE",TALK_ON);
- whisS=leak(whisS,k==="WHISPER",TALK_ON);quietS=leak(quietS,k==="QUIET",QUIET_OFF);
- const next=talkS>=TALK_ON?"TALKING":boostS>=TALK_ON?"BOOST":whisS>=TALK_ON?"WHISPER":quietS>=QUIET_OFF?"QUIET":state;
+ whisS=leak(whisS,k==="WHISPER"||k==="WHISPER_GROUP",TALK_ON);
+ whisGS=leak(whisGS,k==="WHISPER_GROUP",TALK_ON);quietS=leak(quietS,k==="QUIET",QUIET_OFF);
+ const next=talkS>=TALK_ON?"TALKING":boostS>=TALK_ON?"BOOST":whisGS>=TALK_ON?"WHISPER_GROUP":
+  whisS>=TALK_ON?"WHISPER":quietS>=QUIET_OFF?"QUIET":state;
  if(next!==state){state=next;inSpeech=state==="TALKING";onState()}}
 async function sendTv(action,level){
  if(!token||localStorage.getItem("sonex_tv")!=="1")return;
@@ -314,12 +328,15 @@ async function sendTv(action,level){
 function tvReact(){
  if(state==="TALKING")sendTv("DUCK",+$("duck").value);
  else if(state==="BOOST")sendTv("BOOST",100);
+ else if(state==="WHISPER_GROUP")sendTv("DUCK",Math.min(30,Math.max(10,(+$("duck").value)>>1)));
  else if(state==="QUIET")sendTv("RESTORE")}
+ // WHISPER (solo) sends nothing — hold everything.
 // tint the shared Lottie to the state colour (same look as the app)
 const HUES={QUIET:"grayscale(1) sepia(1) saturate(500%) hue-rotate(120deg)",
  TALKING:"grayscale(1) sepia(1) saturate(500%) hue-rotate(290deg)",
  BOOST:"grayscale(1) sepia(1) saturate(600%) hue-rotate(0deg)",
- WHISPER:"grayscale(1) sepia(1) saturate(500%) hue-rotate(215deg)"};
+ WHISPER:"grayscale(1) sepia(1) saturate(500%) hue-rotate(215deg)",
+ WHISPER_GROUP:"grayscale(1) sepia(1) saturate(500%) hue-rotate(215deg)"};
 function syncLottie(){
  const w=$("lottieWrap");if(!w||w.style.display==="none")return;
  w.style.filter=listening?HUES[state]:"grayscale(1) opacity(.45)";
@@ -331,20 +348,26 @@ setTimeout(()=>{
   $("lottieWrap").style.display="none";$("orb").style.display="block"}},3000);
 function onState(){
  tvReact();syncLottie();
- $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding"}[state];
+ $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding",WHISPER_GROUP:"Whispering 🤫 — easing down"}[state];
  $("status").style.color=COLORS[state]}
-async function builtinMic(){
+// Pick the mic: an explicit choice from Settings wins; otherwise, if a
+// Bluetooth headset/earbuds are connected we listen through THEM (so you can
+// walk away from the phone); if none, we fall back to the built-in mic.
+async function chosenMic(){
  try{
   const tmp=await navigator.mediaDevices.getUserMedia({audio:true}); // unlock labels
   const devs=await navigator.mediaDevices.enumerateDevices();
   tmp.getTracks().forEach(t=>t.stop());
-  const bad=/bluetooth|hands-?free|headset|airpod|buds/i;
-  const mic=devs.find(d=>d.kind==="audioinput"&&d.label&&!bad.test(d.label));
+  const pick=localStorage.getItem("sonex_mic_id");
+  if(pick&&devs.some(d=>d.deviceId===pick&&d.kind==="audioinput"))return{deviceId:{exact:pick}};
+  const bt=/bluetooth|hands-?free|headset|airpod|buds/i;
+  const mic=devs.find(d=>d.kind==="audioinput"&&d.label&&bt.test(d.label)) // prefer earbuds if present
+   ||devs.find(d=>d.kind==="audioinput"&&d.label);
   return mic?{deviceId:{exact:mic.deviceId}}:{}
  }catch(_){return{}}}
 async function startListening(){
  busy($("startBtn"),true,"Starting…");
- try{const micSel=await builtinMic();
+ try{const micSel=await chosenMic();
   stream=await navigator.mediaDevices.getUserMedia({audio:{...micSel,
   echoCancellation:true,noiseSuppression:false,autoGainControl:false}})}
  catch(_){busy($("startBtn"),false,"▶ Start");$("status").textContent="Microphone permission needed";return}
@@ -355,22 +378,45 @@ async function startListening(){
  // output keeps the processor alive without touching playback.
  const mute=audioCtx.createGain();mute.gain.value=0;
  src.connect(proc);proc.connect(mute);mute.connect(audioCtx.destination);
+ applySink();refreshDevices(); // labels are unlocked now; honour chosen output
  proc.onaudioprocess=e=>{
   const b=e.inputBuffer.getChannelData(0);
   let sum=0,cross=0;for(let i=0;i<b.length;i++){sum+=b[i]*b[i];if(i&&(b[i]>=0)!==(b[i-1]>=0))cross++}
   const rms=Math.sqrt(sum/b.length);db=rms>0?20*Math.log10(rms):-100;
-  const zcr=cross/b.length,speech=zcr>=0.05&&zcr<=0.35;
-  const k=classify(db,speech);observe(db,k);step(k);
+  const zcr=cross/b.length,speech=zcr>=0.05&&zcr<=0.35,whisper=zcr>=0.12&&zcr<=0.50;
+  const k=classify(db,speech,whisper);observe(db,k);step(k);
   $("dbLine").textContent=`Room level: ${Math.max(0,Math.min(100,Math.round(db+100)))}/100`};
  listening=true;busy($("startBtn"),false,"■ Stop");$("startBtn").style.background="#d93025";
  $("status").textContent="Listening";$("status").style.color=COLORS.QUIET;syncLottie()}
 function stopListening(){
  if(stream)stream.getTracks().forEach(t=>t.stop());
  if(audioCtx)audioCtx.close();stream=audioCtx=null;listening=false;state="QUIET";inSpeech=false;
- talkS=quietS=boostS=whisS=0;cal.shift=0;
+ talkS=quietS=boostS=whisS=whisGS=0;cal.shift=0;ring.length=0;
  busy($("startBtn"),false,"▶ Start");$("startBtn").style.background="";
  $("status").textContent="Ready";$("status").style.color="";$("dbLine").innerHTML="&nbsp;"}
 $("startBtn").onclick=()=>listening?stopListening():startListening();
+// ---- audio device picker + live Bluetooth status ----
+const BT=/bluetooth|hands-?free|headset|airpod|buds/i;
+async function refreshDevices(){
+ let devs=[];try{devs=await navigator.mediaDevices.enumerateDevices()}catch(_){}
+ const ins=devs.filter(d=>d.kind==="audioinput"),outs=devs.filter(d=>d.kind==="audiooutput");
+ const fill=(sel,list,key,auto)=>{const el=$(sel);if(!el)return;const cur=localStorage.getItem(key)||"";
+  el.innerHTML=`<option value="">${auto}</option>`+list.map((d,i)=>
+   `<option value="${d.deviceId}">${d.label||"Device "+(i+1)}</option>`).join("");
+  el.value=cur};
+ fill("micSel",ins,"sonex_mic_id","Automatic (earbuds if connected)");
+ fill("spkSel",outs,"sonex_spk_id","This device's default");
+ // Honest Bluetooth line: on only when an actual BT audio device is present.
+ const bt=[...ins,...outs].find(d=>d.label&&BT.test(d.label));
+ const dot=$("btDot"),st=$("btSt");
+ if(dot&&st){if(bt){dot.className="dot on";st.textContent="Connected — SoNex can listen and play through it"}
+  else{dot.className="dot off";st.textContent="No Bluetooth audio device connected"}}}
+async function applySink(){const id=localStorage.getItem("sonex_spk_id");
+ if(id&&audioCtx&&audioCtx.setSinkId)try{await audioCtx.setSinkId(id)}catch(_){}}
+if($("micSel"))$("micSel").onchange=e=>{localStorage.setItem("sonex_mic_id",e.target.value);
+ if(listening){stopListening();startListening()}}; // re-open on the new mic
+if($("spkSel"))$("spkSel").onchange=e=>{localStorage.setItem("sonex_spk_id",e.target.value);applySink()};
+if(navigator.mediaDevices){navigator.mediaDevices.addEventListener?.("devicechange",refreshDevices);refreshDevices()}
 // ---- settings ----
 $("duck").oninput=()=>{$("duckVal").textContent=$("duck").value;localStorage.setItem("sonex_duck",$("duck").value);pushSettings({duck:+$("duck").value})};
 $("duck").value=localStorage.getItem("sonex_duck")||30;$("duckVal").textContent=$("duck").value;

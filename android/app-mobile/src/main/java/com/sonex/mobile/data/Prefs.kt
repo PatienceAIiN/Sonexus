@@ -158,6 +158,19 @@ object Prefs {
     fun setListeningEnabled(c: Context, v: Boolean) =
         sp(c).edit().putBoolean("listening_on", v).apply()
 
+    // ---- Auto-start: when the phone joins the same Wi-Fi as a paired TV,
+    // start listening on its own. On by default (the app is fully automatic);
+    // a manual Stop still wins for the rest of that Wi-Fi session. ----
+    fun autoStartOnWifi(c: Context) = sp(c).getBoolean("auto_start_wifi", true)
+    fun setAutoStartOnWifi(c: Context, v: Boolean) =
+        sp(c).edit().putBoolean("auto_start_wifi", v).apply()
+
+    /** Set true when the user hits Stop, so auto-start won't fight them until
+     *  the phone leaves and rejoins Wi-Fi (cleared on network loss). */
+    fun autoStartSuppressed(c: Context) = sp(c).getBoolean("auto_start_suppressed", false)
+    fun setAutoStartSuppressed(c: Context, v: Boolean) =
+        sp(c).edit().putBoolean("auto_start_suppressed", v).apply()
+
     // ---- UX ----
     @Suppress("UNUSED_PARAMETER")
     fun hapticsEnabled(c: Context) = true // always on — consistent tactile feel

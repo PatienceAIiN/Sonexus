@@ -7,8 +7,14 @@ import kotlinx.serialization.Serializable
  * Both apps depend on this module so the wire format can never drift.
  */
 
-/** Listening / decision state the phone broadcasts. */
-enum class RoomState { QUIET, TALKING, BOOST, WHISPER }
+/**
+ * Listening / decision state the phone broadcasts.
+ * WHISPER = one person being quiet: hold everything.
+ * WHISPER_GROUP = several people whispering (louder, an actual hushed
+ * conversation): still "whispering" to the user, but nudge the volume down a
+ * touch so it doesn't sit on top of them.
+ */
+enum class RoomState { QUIET, TALKING, BOOST, WHISPER, WHISPER_GROUP }
 
 /** What the TV should do when it receives a command. */
 enum class Action { DUCK, MUTE, PAUSE, RESUME, BOOST, RESTORE }

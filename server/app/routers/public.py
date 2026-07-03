@@ -74,6 +74,9 @@ async def download(target: str):
 
 
 ANDROID_SVG = """<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.7-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24c-2.86-1.21-6.08-1.21-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48C3.3 11.25 1.28 14.44 1 18h22c-.28-3.56-2.3-6.75-5.4-8.52zM7 15.25c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25zm10 0c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25z"/></svg>"""
+# Small inline logos for the download menu items (Android green, Apple grey).
+ANDROID_MARK = """<svg width="18" height="18" viewBox="0 0 24 24" fill="#3ddc84" style="vertical-align:-3px;margin-right:6px" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.7-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24c-2.86-1.21-6.08-1.21-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48C3.3 11.25 1.28 14.44 1 18h22c-.28-3.56-2.3-6.75-5.4-8.52zM7 15.25c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25zm10 0c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25z"/></svg>"""
+APPLE_MARK = """<svg width="17" height="17" viewBox="0 0 24 24" fill="#8a8f98" style="vertical-align:-3px;margin-right:6px" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>"""
 
 LANDING = """<!doctype html>
 <html lang="en"><head>
@@ -181,12 +184,12 @@ __GSV__
       background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(32,33,36,.14);
       padding:10px;min-width:290px;text-align:left;z-index:5">
       <div style="font-size:.75rem;color:var(--sub);padding:4px 10px">ANDROID · v__VER__ · Android 8.0+ (API 26)</div>
-      <a class="ddi" href="/download/mobile">📱 Android phone <span>arm64 APK</span></a>
-      <a class="ddi" href="/download/tv">📺 Android TV <span>APK · sideload</span></a>
+      <a class="ddi" href="/download/mobile">__ANDMARK__Android phone <span>arm64 APK</span></a>
+      <a class="ddi" href="/download/tv">__ANDMARK__Android TV <span>APK · sideload</span></a>
       <div style="font-size:.75rem;color:var(--sub);padding:8px 10px 4px;border-top:1px solid var(--line);margin-top:6px">
         APPLE · coming soon</div>
-      <span class="ddi off"> iPhone <span>iOS 16+ · in review</span></span>
-      <span class="ddi off">📺 Apple TV <span>tvOS 16+ · in review</span></span>
+      <span class="ddi off">__APLMARK__iPhone <span>iOS 16+ · in review</span></span>
+      <span class="ddi off">__APLMARK__Mac <span>macOS 13+ · in review</span></span>
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
@@ -278,7 +281,7 @@ async function sendContact(e){
   return false;
 }
 </script>
-</body></html>""".replace("__ANDROID__", ANDROID_SVG)
+</body></html>""".replace("__ANDROID__", ANDROID_SVG).replace("__ANDMARK__", ANDROID_MARK).replace("__APLMARK__", APPLE_MARK)
 
 
 def _legal_page(title: str, body: str) -> str:
@@ -348,6 +351,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("3.0", "SoNex now starts on its own the moment your phone joins the same Wi-Fi as your paired TV - no tapping Start. Whisper detection is far more reliable (soft breathy voices are caught properly now), and when several people are whispering together SoNex shows 'Whispering' and eases the volume down a touch instead of holding it. On SoNex Web you can now pick which microphone and speaker to use - listen through your earbuds or headphones - and the Bluetooth status finally tells you the truth about what's connected."),
     ("2.9", "Coolers, fans and machines no longer trick SoNex into lowering your sound - steady outside noise now raises the volume to cut through it, while real talking still lowers it and whispering still holds it."),
     ("2.8", "Fully hands-free: SoNex now manages every device automatically - the manual mute buttons are gone, because you should never need them."),
     ("2.7", "Calibration got a brain upgrade: it now ignores mic warm-up noise, measures each step the smart way, and tells you if the room was too unsteady to trust."),
