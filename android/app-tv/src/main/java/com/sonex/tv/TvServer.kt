@@ -88,10 +88,11 @@ class TvServer(
                             val cmd = msg.command
                             policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
                                 ?.let { target ->
-                                    // Fade, don't snap — jumps are jarring on TV speakers.
+                                    // Fade, don't snap; voice commands show the TV volume bar.
+                                    val flags = if (cmd.reason == "voice") AudioManager.FLAG_SHOW_UI else 0
                                     val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
                                     for (v in com.sonex.core.VolumeRamp.steps(from, target)) {
-                                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
+                                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, flags)
                                         Thread.sleep(45)
                                     }
                                 }

@@ -51,13 +51,24 @@ class VoskTranscriptSource(
 
     val available: Boolean get() = recognizers.isNotEmpty()
 
+    private var lastPartial = ""
+
     fun accept(buf: ShortArray, n: Int) {
         if (recognizers.isEmpty()) return
         for (r in recognizers) {
             runCatching {
                 if (r.acceptWaveForm(buf, n)) {
+                    lastPartial = ""
                     val text = JSONObject(r.result).optString("text")
                     if (text.isNotBlank()) onTranscript(text)
+                } else {
+                    // Partial hypothesis: react as soon as the words appear —
+                    // the gate consumes each command once, so no double-fire.
+                    val partial = JSONObject(r.partialResult).optString("partial")
+                    if (partial.isNotBlank() && partial != lastPartial) {
+                        lastPartial = partial
+                        onTranscript(partial)
+                    }
                 }
             }
         }

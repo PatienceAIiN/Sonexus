@@ -33,7 +33,7 @@ class PhoneSpeakerTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { rampStreamTo(audio, it) }
+                ?.let { rampStreamTo(audio, it, showUi = cmd.reason == "voice") }
         }
     }
 }
@@ -54,7 +54,7 @@ class BluetoothTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { rampStreamTo(audio, it) }
+                ?.let { rampStreamTo(audio, it, showUi = cmd.reason == "voice") }
         }
     }
 }
@@ -80,7 +80,7 @@ class WiredHeadsetTarget(private val audio: AudioManager) : OutputTarget {
             Action.PAUSE -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PAUSE)
             Action.RESUME -> mediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY)
             else -> policy.apply(cmd, audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-                ?.let { rampStreamTo(audio, it) }
+                ?.let { rampStreamTo(audio, it, showUi = cmd.reason == "voice") }
         }
     }
 }
@@ -128,11 +128,13 @@ class CastTarget(private val context: Context) : OutputTarget {
     }
 }
 
-/** Fade to the target instead of snapping — ducks ease in, restores swell. */
-private suspend fun rampStreamTo(audio: AudioManager, target: Int) {
+/** Fade to the target instead of snapping — ducks ease in, restores swell.
+ *  Voice-initiated changes show the system volume slider so you SEE it move. */
+private suspend fun rampStreamTo(audio: AudioManager, target: Int, showUi: Boolean = false) {
+    val flags = if (showUi) AudioManager.FLAG_SHOW_UI else 0
     val from = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
     for (v in VolumeRamp.steps(from, target)) {
-        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, flags)
         delay(45)
     }
 }

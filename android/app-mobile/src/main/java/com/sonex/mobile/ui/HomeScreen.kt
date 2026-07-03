@@ -117,7 +117,7 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
             Text(
                 when {
-                    !listening -> "Ready"
+                    !listening -> "Ready — press Start to listen"
                     state == RoomState.TALKING -> "Talking — volume lowered"
                     state == RoomState.BOOST -> "Loud room — volume raised"
                     state == RoomState.WHISPER -> "Whispering 🤫 — volume untouched"
@@ -125,6 +125,11 @@ fun HomeScreen(
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = if (listening) orbColor else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!listening) Text(
+                "Voice commands need the mic — they work while listening is on",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (listening) Text(
                 "Room level ${level.toInt()} dB",

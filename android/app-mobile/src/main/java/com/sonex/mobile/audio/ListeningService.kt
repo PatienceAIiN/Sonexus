@@ -174,7 +174,7 @@ class ListeningService : Service() {
         if (source.available) {
             voice = source
             val voskExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-                Thread(r, "sonex-vosk").apply { priority = Thread.MIN_PRIORITY }
+                Thread(r, "sonex-vosk")
             }
             val busy = java.util.concurrent.atomic.AtomicBoolean(false)
             engine.pcmTap = { buf, n ->
