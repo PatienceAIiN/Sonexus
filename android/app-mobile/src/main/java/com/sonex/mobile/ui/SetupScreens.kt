@@ -149,7 +149,7 @@ private fun StepPrompt(title: String, body: String, progress: Float, onNext: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: () -> Unit, onOpenPrivacy: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -189,7 +189,11 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
 
             SectionHeader(Icons.Filled.GraphicEq, "Response")
             Text("Duck to ${duck.toInt()}% when someone talks")
-            Slider(duck, { duck = it; Prefs.setDuckLevel(ctx, it.toInt()) }, valueRange = 10f..80f)
+            Slider(
+                duck,
+                { if (it.toInt() != duck.toInt()) buzz(); duck = it; Prefs.setDuckLevel(ctx, it.toInt()) },
+                valueRange = 10f..80f
+            )
 
             SectionHeader(Icons.Filled.SquareFoot, "Room size")
             Text(
@@ -241,6 +245,11 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             ConsentRow("Haptic feedback", hapticsOn) {
                 hapticsOn = it; Prefs.setHapticsEnabled(ctx, it); buzz(); toast(if (it) "Haptics on ✓" else "Haptics off ✓")
             }
+            var wakeOn by remember { mutableStateOf(Prefs.wakeWordEnabled(ctx)) }
+            ConsentRow("Wake word \"SoNex\"", wakeOn) {
+                wakeOn = it; Prefs.setWakeWordEnabled(ctx, it); buzz()
+                toast(if (it) "Say \"SoNex\" + a command ✓ (restart listening)" else "Wake word off ✓")
+            }
 
             SectionHeader(Icons.Filled.Shield, "Privacy & consent")
             Text(
@@ -249,49 +258,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
-            var showPrivacy by remember { mutableStateOf(false) }
-            TextButton(onClick = { showPrivacy = true }) {
-                Icon(Icons.Filled.Shield, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Privacy policy & data collection rules")
-            }
-            if (showPrivacy) {
-                AlertDialog(
-                    onDismissRequest = { showPrivacy = false },
-                    title = { Text("Privacy & your data") },
-                    text = {
-                        Column(Modifier.verticalScroll(rememberScrollState())) {
-                            Text(
-                                """SoNex is private by default.
-
-WHAT STAYS ON YOUR PHONE
-• All microphone audio — processed in real time and immediately discarded. No audio, transcripts or voice prints ever leave this device.
-• Your calibration, room profile and device rules.
-
-WHAT WE STORE WITH AN ACCOUNT
-• Your email and a salted password hash — nothing else.
-
-WHAT LEAVES ONLY WITH YOUR CONSENT (each toggle below, OFF by default)
-• Detection events and volume corrections — to train your home's model.
-• Short audio clips — only with "Upload clips" ON.
-• Anonymous usage statistics.
-
-YOUR RIGHTS
-• Export everything we hold, any time.
-• "Delete my data" removes database rows AND stored files, immediately.
-• Revoking a consent takes effect instantly.
-
-EMAIL
-• We send one-time codes for verification and password reset. No marketing without separate opt-in.
-
-A persistent notification is shown the entire time the mic is live. Questions: info@patienceai.in""",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    },
-                    confirmButton = { TextButton(onClick = { showPrivacy = false }) { Text("Got it") } }
-                )
-            }
             ConsentRow("Keep my data on this device", onDevice) {
                 onDevice = it
                 syncedConsent("c_store_server", !it)
@@ -401,7 +367,13 @@ A persistent notification is shown the entire time the mic is live. Questions: i
                 )
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
+            TextButton(onClick = { buzz(); onOpenPrivacy() }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Shield, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Privacy policy & data collection", textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+            }
+            Spacer(Modifier.height(8.dp))
             Text(
                 "A product of Patience AI",
                 style = MaterialTheme.typography.bodySmall,

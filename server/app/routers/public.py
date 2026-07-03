@@ -98,7 +98,7 @@ __GSV__
   nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:28px;
         padding:14px 6vw; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
         border-bottom:1px solid var(--line); }
-  nav .logo { font-weight:900; font-size:1.5rem; letter-spacing:-.5px; margin-right:auto;
+  nav .logo { font-weight:900; font-size:1.8rem; letter-spacing:-.5px; margin-right:auto;
       background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF); background-size:300% 300%;
       -webkit-background-clip:text; background-clip:text; color:transparent;
       animation:shimmer 6s ease infinite, breathe 2.6s ease-in-out infinite; display:inline-block; }
@@ -141,6 +141,10 @@ __GSV__
   .contact input:focus, .contact textarea:focus { outline:2px solid var(--violet); border-color:transparent; }
   .contact button { justify-self:center; border:0; cursor:pointer; }
   #contact-status { text-align:center; color:var(--teal); min-height:1.4em; }
+  .ddi { display:flex; justify-content:space-between; gap:16px; padding:10px; border-radius:9px;
+     color:var(--ink); text-decoration:none; font-weight:600; font-size:.95rem; }
+  .ddi span { color:var(--sub); font-weight:400; font-size:.8rem; }
+  .ddi:hover { background:#f8f9fa; } .ddi.off { opacity:.5; cursor:default; }
   footer { border-top:1px solid var(--line); padding:26px 6vw; display:flex; flex-wrap:wrap;
            gap:14px; align-items:center; justify-content:space-between; color:var(--sub); font-size:.92rem; }
   footer .links { display:flex; gap:22px; } footer a { color:var(--sub); text-decoration:none; }
@@ -164,9 +168,23 @@ __GSV__
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
   <div class="rotator" id="rotator"><span class="show">The volume that listens back.</span></div>
   <p class="sub">On-device AI · Private by default</p>
-  <div class="cta" id="download">
-    <a class="btn primary" href="/download/mobile">__ANDROID__ Download for Android</a>
-    <a class="btn secondary" href="/download/tv">__ANDROID__ Get the TV app</a>
+  <div class="cta" id="download" style="position:relative">
+    <button class="btn primary" onclick="dd.style.display=dd.style.display==='block'?'none':'block'">
+      <span id="platicon">__ANDROID__</span> Download <span style="font-size:.8em">▾</span>
+    </button>
+    <div id="dd" style="display:none;position:absolute;top:110%;left:50%;transform:translateX(-50%);
+      background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(32,33,36,.14);
+      padding:10px;min-width:290px;text-align:left;z-index:5">
+      <div style="font-size:.75rem;color:var(--sub);padding:4px 10px">ANDROID · v__VER__ · Android 8.0+ (API 26)</div>
+      <a class="ddi" href="/download/mobile">📱 Android phone <span>arm64 APK</span></a>
+      <a class="ddi" href="/download/tv">📺 Android TV <span>APK · sideload</span></a>
+      <div style="font-size:.75rem;color:var(--sub);padding:8px 10px 4px;border-top:1px solid var(--line);margin-top:6px">
+        APPLE · coming soon</div>
+      <span class="ddi off"> iPhone <span>iOS 16+ · in review</span></span>
+      <span class="ddi off">📺 Apple TV <span>tvOS 16+ · in review</span></span>
+      <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
+      On Android TV use a file manager or "Send files to TV".</div>
+    </div>
   </div>
 </div>
 <section id="features">
@@ -221,6 +239,10 @@ const LINES = [
   "Blender roars. SoNex turns it up.",
   "No remotes. No shushing."
 ];
+const APPLE='<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>';
+const AND=document.getElementById('platicon').innerHTML;
+let flip=false; setInterval(()=>{flip=!flip;document.getElementById('platicon').innerHTML=flip?APPLE:AND;},2600);
+document.addEventListener('click',e=>{if(!e.target.closest('#download'))dd.style.display='none';});
 (function(){
   const box=document.getElementById('rotator'), el=box.querySelector('span');
   let i=0, paused=false;
@@ -283,7 +305,13 @@ grievance officer to be announced (DPDP 2023).</p>"""
 async def landing(request: Request):
     gsv = (f'<meta name="google-site-verification" content="{settings.google_site_verification}">'
            if settings.google_site_verification else "")
-    return LANDING.replace("__GSV__", gsv).replace("__BASE__", _base(request))
+    ver = ""
+    try:
+        ver = _releases().get("mobile", {}).get("version_name", "")
+    except Exception:
+        pass
+    return (LANDING.replace("__GSV__", gsv).replace("__BASE__", _base(request))
+            .replace("__VER__", ver or "latest"))
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)

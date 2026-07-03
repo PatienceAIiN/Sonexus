@@ -73,7 +73,10 @@ fun HomeScreen(
     val orbColor by animateColorAsState(target, tween(500), label = "orb")
 
     val t = rememberInfiniteTransition(label = "orb")
-    val ring by t.animateFloat(0.7f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "r")
+    val breathe by t.animateFloat(0.92f, 1f, infiniteRepeatable(
+        tween(2400, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
+    val sweep by t.animateFloat(0f, 360f, infiniteRepeatable(
+        tween(3600, easing = androidx.compose.animation.core.LinearEasing)), label = "s")
 
     Scaffold(
         topBar = {
@@ -90,12 +93,26 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(16.dp))
-            // Live state orb — a breathing meter, the app's signature.
-            Canvas(Modifier.size(240.dp)) {
+            // Live state orb — minimal: a soft breathing core inside one thin
+            // arc that sweeps continuously. Calm, smooth, no glow stack.
+            Canvas(Modifier.size(220.dp)) {
                 val c = Offset(size.width / 2, size.height / 2)
-                drawCircle(orbColor.copy(alpha = 0.15f), radius = size.minDimension / 2 * ring, center = c)
-                drawCircle(orbColor.copy(alpha = 0.35f), radius = size.minDimension / 3 * ring, center = c)
-                drawCircle(orbColor, radius = size.minDimension / 5, center = c)
+                val r = size.minDimension / 2
+                drawCircle(  // soft halo
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        listOf(orbColor.copy(alpha = 0.22f), orbColor.copy(alpha = 0f)),
+                        center = c, radius = r * breathe
+                    ), radius = r * breathe, center = c
+                )
+                drawCircle(orbColor, radius = r * 0.24f * breathe, center = c)
+                drawArc(  // thin sweeping arc
+                    color = orbColor.copy(alpha = 0.8f),
+                    startAngle = sweep, sweepAngle = 72f, useCenter = false,
+                    topLeft = Offset(c.x - r * 0.62f, c.y - r * 0.62f),
+                    size = androidx.compose.ui.geometry.Size(r * 1.24f, r * 1.24f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
             }
             Spacer(Modifier.height(24.dp))
             Text(

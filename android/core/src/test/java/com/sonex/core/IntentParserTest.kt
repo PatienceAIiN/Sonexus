@@ -90,3 +90,20 @@ class WakeWordGateTest {
         org.junit.Assert.assertFalse(WakeWordGate.containsWakeWord("sonic the hedgehog"))
     }
 }
+
+class AmountParsingTest {
+    @org.junit.Test fun numeric_amounts_are_extracted() {
+        val p = IntentParser.parseWithAmount("sonex increase volume by 20")!!
+        org.junit.Assert.assertEquals(VoiceIntent.RAISE_VOLUME, p.intent)
+        org.junit.Assert.assertEquals(20, p.amount)
+        org.junit.Assert.assertEquals(15,
+            IntentParser.parseWithAmount("volume kam karo 15")!!.amount)
+        org.junit.Assert.assertNull(IntentParser.parseWithAmount("lower the volume")!!.amount)
+    }
+
+    @org.junit.Test fun word_numbers_and_clamping() {
+        org.junit.Assert.assertEquals(20, IntentParser.parseWithAmount("volume up by twenty")!!.amount)
+        org.junit.Assert.assertEquals(100, IntentParser.parseWithAmount("raise volume by 250")!!.amount)
+        org.junit.Assert.assertNull(IntentParser.parseWithAmount("what a lovely evening"))
+    }
+}

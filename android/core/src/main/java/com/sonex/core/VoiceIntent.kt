@@ -39,6 +39,24 @@ object IntentParser {
         )
     )
 
+    /** Intent plus an optional amount: "increase volume by 20" -> (RAISE, 20). */
+    data class Parsed(val intent: VoiceIntent, val amount: Int? = null)
+
+    private val numberWords = mapOf(
+        "ten" to 10, "twenty" to 20, "thirty" to 30, "forty" to 40, "fifty" to 50,
+        "das" to 10, "bees" to 20, "tees" to 30, "chalis" to 40, "pachas" to 50
+    )
+
+    /** Parse transcript + extract "by N" / "to N" style amounts (EN + HI). */
+    fun parseWithAmount(transcript: String): Parsed? {
+        val intent = parse(transcript) ?: return null
+        val t = transcript.lowercase()
+        val digits = Regex("\\b(\\d{1,3})\\b").find(t)?.groupValues?.get(1)?.toIntOrNull()
+        val word = numberWords.entries.firstOrNull { t.contains(it.key) }?.value
+        val amount = (digits ?: word)?.coerceIn(1, 100)
+        return Parsed(intent, amount)
+    }
+
     /**
      * Map a transcript to an intent, or null if nothing matches.
      * Earlier table entries win, so "mute" beats the "stop" in "stop muting".

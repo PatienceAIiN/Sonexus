@@ -133,8 +133,9 @@ class ListeningService : Service() {
         return if (vad != null || sound != null) MlClassifier(vad, sound, cal, fallback) else fallback
     }
 
-    /** Voice control rides the same mic: active whenever listening is on. */
+    /** Voice control rides the same mic — zero extra permissions, instant. */
     private fun attachVoiceControl(engine: DetectionEngine) {
+        if (!Prefs.wakeWordEnabled(this)) return
         val models = VoskTranscriptSource.installedModels(filesDir)
         if (models.isEmpty()) return
         var disarm: kotlinx.coroutines.Job? = null
@@ -150,13 +151,23 @@ class ListeningService : Service() {
                     (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(2)
                 }
             }
-        ) { intent ->
+        ) { intent, amount ->
             wakeActive.value = false
             lastVoiceIntent.value = intent
             scope.launch {
-                router.broadcast(
-                    IntentParser.toCommand(intent, Prefs.duckLevel(this@ListeningService), 100)
-                )
+                // "increase volume by 20" => shift from the CURRENT level.
+                val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val currentPct = audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max
+                val cmd = when {
+                    amount != null && intent == com.sonex.core.VoiceIntent.RAISE_VOLUME ->
+                        com.sonex.core.Command(com.sonex.core.Action.BOOST,
+                            (currentPct + amount).coerceAtMost(100), "voice")
+                    amount != null && intent == com.sonex.core.VoiceIntent.LOWER_VOLUME ->
+                        com.sonex.core.Command(com.sonex.core.Action.DUCK,
+                            (currentPct - amount).coerceAtLeast(0), "voice")
+                    else -> IntentParser.toCommand(intent, Prefs.duckLevel(this@ListeningService), 100)
+                }
+                router.broadcast(cmd)
             }
         }
         val source = VoskTranscriptSource(models) { text -> controller.onTranscript(text) }

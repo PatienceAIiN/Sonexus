@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 /** Single-activity Compose host. Simple enum-based navigation keeps Phase 1 lean. */
 class MainActivity : ComponentActivity() {
 
-    enum class Screen { LOGIN, PAIR, HOME, CALIBRATE, SETTINGS }
+    enum class Screen { LOGIN, PAIR, HOME, CALIBRATE, SETTINGS, PRIVACY }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 androidx.activity.compose.BackHandler {
                     when (screen) {
                         Screen.PAIR, Screen.CALIBRATE, Screen.SETTINGS -> screen = Screen.HOME
+                        Screen.PRIVACY -> screen = Screen.SETTINGS
                         Screen.HOME, Screen.LOGIN -> {
                             val now = System.currentTimeMillis()
                             if (now - lastBackPress < 2000) finish()
@@ -94,8 +95,10 @@ class MainActivity : ComponentActivity() {
                     Screen.SETTINGS -> SettingsScreen(
                         onBack = { screen = Screen.HOME },
                         onDataDeleted = { screen = Screen.LOGIN },
-                        onLoggedOut = { screen = Screen.LOGIN }
+                        onLoggedOut = { screen = Screen.LOGIN },
+                        onOpenPrivacy = { screen = Screen.PRIVACY }
                     )
+                    Screen.PRIVACY -> PrivacyScreen(onBack = { screen = Screen.SETTINGS })
                 }
             }
         }

@@ -10,7 +10,7 @@ import org.junit.Test
 class VoiceControllerTest {
 
     private fun controller(clock: () -> Long, sink: MutableList<VoiceIntent>) =
-        VoiceController(WakeWordGate(windowMs = 8000), now = clock, onIntent = { sink += it })
+        VoiceController(WakeWordGate(windowMs = 8000), now = clock, onIntent = { i, _ -> sink += i })
 
     @Test fun command_without_wake_word_is_ignored() {
         val fired = mutableListOf<VoiceIntent>()
