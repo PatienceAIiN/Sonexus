@@ -94,12 +94,19 @@ def _row_dict(obj) -> dict:
 
 
 @router.get("/admin/api/table/{table}", dependencies=[Depends(require_admin)])
-async def table_rows(table: str, db: AsyncSession = Depends(get_db)):
+async def table_rows(table: str, offset: int = 0, limit: int = 50,
+                     db: AsyncSession = Depends(get_db)):
     model = TABLES.get(table)
     if model is None:
         raise HTTPException(status_code=404, detail="Unknown table")
-    rows = (await db.execute(select(model).order_by(model.id.desc()).limit(200))).scalars().all()
-    return {"table": table, "rows": [_row_dict(r) for r in rows]}
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    total = (await db.execute(select(func.count()).select_from(model))).scalar() or 0
+    rows = (await db.execute(
+        select(model).order_by(model.id.desc()).offset(offset).limit(limit)
+    )).scalars().all()
+    return {"table": table, "rows": [_row_dict(r) for r in rows],
+            "total": total, "offset": offset, "limit": limit}
 
 
 @router.delete("/admin/api/table/{table}/{row_id}", dependencies=[Depends(require_admin)])
@@ -196,72 +203,23 @@ async def admin_stats(db: AsyncSession = Depends(get_db)):
             for e in recent_events
         ],
         "labels": {(lbl or "unlabelled"): n for lbl, n in label_rows},
+        "last_train": LAST_TRAIN,
     }, ttl_sec=2)
+
+
+# Last automatic/manual training run, surfaced on the dashboard.
+LAST_TRAIN: dict = {}
 
 
 @router.post("/admin/api/train", dependencies=[Depends(require_admin)])
 async def admin_train(db: AsyncSession = Depends(get_db)):
-    """Train the lightweight frame classifier and publish it OTA.
-
-    Trains on the open-dataset priors plus any real labelled detections, exports
-    the tiny softmax model as JSON, uploads it to storage, and registers it as a
-    new active "lite" model. The phone picks it up on its next manifest sync.
-    """
-    import hashlib
-    import json as _json
-
-    from .. import cache, training
-    from ..storage import get_storage
-
-    # Fold in real labelled detections we have level readings for (weak signal:
-    # room_state as label, level over a nominal floor; swing/zcr unknown -> mid).
-    events = (await db.execute(
-        select(Event).where(Event.db.is_not(None), Event.room_state.is_not(None))
-        .order_by(Event.id.desc()).limit(2000)
-    )).scalars().all()
-    label_idx = {c: i for i, c in enumerate(training.CLASSES)}
-    extra = []
-    for e in events:
-        ci = label_idx.get((e.room_state or "").upper())
-        if ci is None:
-            continue
-        rms_over_floor = max(0.0, (e.db or -60.0) + 55.0)  # nominal -55 dB floor
-        extra.append(([rms_over_floor, 0.2, 8.0], ci))
-
-    model = training.train(extra_samples=extra or None)
-
-    existing = (await db.execute(
-        select(func.count()).select_from(Model).where(Model.kind == "lite")
-    )).scalar() or 0
-    version = f"1.{existing + 1}"
-    payload = {
-        "version": version,
-        "classes": model["classes"],
-        "weights": model["weights"],
-        "bias": model["bias"],
-        "mean": model["mean"],
-        "std": model["std"],
-    }
-    data = _json.dumps(payload, separators=(",", ":")).encode()
-    sha = hashlib.sha256(data).hexdigest()
-    fname = f"lite-{version}.json"
-    key = f"models/{fname}"
-    backend = get_storage().put(key, data, "application/json") or "local"
-
-    # Retire older lite models so only the newest is active.
-    for old in (await db.execute(
-        select(Model).where(Model.kind == "lite", Model.status == "active")
-    )).scalars().all():
-        old.status = "rollback"
-
-    row = Model(home_id=None, kind="lite", file=fname, version=version, sha256=sha,
-                min_app_version=1, status="active", storage_key=key, backend=backend)
-    db.add(row)
-    await db.commit()
-    cache.invalidate("admin:")
-    return {"version": version, "accuracy": round(model["accuracy"], 4),
-            "n_samples": model["n_samples"], "n_real": model["n_real"],
-            "sha256": sha[:12], "backend": backend}
+    """Manually run the same automated job that fires nightly at 02:00 IST:
+    train on consented audio + priors, publish a new model OTA, delete the audio."""
+    from .. import trainer_job
+    report = await trainer_job.train_and_publish(db)
+    LAST_TRAIN.clear()
+    LAST_TRAIN.update(report)
+    return report
 
 
 DASH = """<!doctype html><html><head><meta charset="utf-8">
@@ -304,9 +262,10 @@ DASH = """<!doctype html><html><head><meta charset="utf-8">
  <div class="grid" id="counts"></div>
  <h2>Live metrics (model performance)</h2><svg id="chart" preserveAspectRatio="none"></svg>
  <div class="muted" id="chartlabel"></div>
- <h2>Model training runs
-   <button id="trainBtn" onclick="trainNow()" style="margin-left:10px;padding:6px 14px;border:0;border-radius:8px;background:#7C4DFF;color:#fff;font-weight:700;cursor:pointer;font-size:.8rem">⚡ Train now</button>
+ <h2>Model training <span class="muted">· automatic, daily at 02:00 IST</span>
+   <button id="trainBtn" onclick="trainNow()" style="margin-left:10px;padding:6px 14px;border:0;border-radius:8px;background:#7C4DFF;color:#fff;font-weight:700;cursor:pointer;font-size:.8rem">Run now</button>
    <span class="muted" id="trainMsg"></span></h2>
+ <div class="muted" id="lastTrain"></div>
  <table id="models"><tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr></table>
  <h2>Datasets &amp; data used to improve SoNex</h2>
  <div class="muted" id="labels"></div>
@@ -331,6 +290,10 @@ async function refresh(){
  counts.innerHTML=Object.entries(c).map(([k,v])=>`<div class="card" onclick="openTable('${k}')"><b>${v}</b><span>${k}</span></div>`).join('')
   +`<div class="card"><b class="${s.health.db?'ok':'bad'}">${s.health.db?'✓':'✗'}</b><span>database</span></div>`
   +`<div class="card"><b class="${s.health.redis?'ok':'bad'}">${s.health.redis?'✓':'✗'}</b><span>redis</span></div>`;
+ const lt=s.last_train||{};
+ document.getElementById('lastTrain').textContent=lt.version
+  ?`Last run: v${lt.version} · accuracy ${(lt.accuracy*100).toFixed(1)}% · ${lt.clips_used} clips used & deleted · ${lt.n_samples} samples · ${lt.at||''}`
+  :'No training run yet this session — fires automatically at 02:00 IST.';
  const rows=s.models.map(m=>`<tr><td>${m.id}</td><td>${m.home_id??'—'}</td><td>${m.kind}</td><td>${m.version}</td><td>${m.status}</td><td>${m.created_at.slice(0,19)}</td></tr>`).join('');
  models.innerHTML='<tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr>'+rows;
  const pts=s.metrics.filter(m=>m.name==='accuracy');
@@ -353,18 +316,25 @@ async function refresh(){
   (t.length?t.map(e=>`<tr><td>${e.ts}</td><td>${e.type}</td><td>${e.room_state??'—'}</td><td>${e.action??'—'}</td><td>${e.db!=null?e.db.toFixed(1):'—'}</td><td>${e.source??'—'}</td></tr>`).join('')
    :'<tr><td colspan="6" class="muted">No detections received yet.</td></tr>');
 }
-async function openTable(name){
- const r=await fetch('/admin/api/table/'+name);
+let _tbl={name:'',offset:0,limit:50};
+async function openTable(name,offset){
+ _tbl.name=name;_tbl.offset=Math.max(0,offset||0);
+ const r=await fetch(`/admin/api/table/${name}?offset=${_tbl.offset}&limit=${_tbl.limit}`);
  if(!r.ok){alert('Unavailable');return}
  const d=await r.json();
- mtitle.textContent=name+' ('+d.rows.length+')';
- if(!d.rows.length){mbody.innerHTML='<p class="muted">No rows yet.</p>'}
+ const from=d.total?d.offset+1:0,to=d.offset+d.rows.length;
+ mtitle.textContent=`${name} · ${from}-${to} of ${d.total}`;
+ const hasPrev=d.offset>0,hasNext=to<d.total;
+ const pager=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+   <button class="rowbtn" ${hasPrev?'':'disabled'} onclick="openTable('${name}',${Math.max(0,d.offset-d.limit)})">‹ Prev</button>
+   <button class="rowbtn" ${hasNext?'':'disabled'} onclick="openTable('${name}',${d.offset+d.limit})">Next ›</button></div>`;
+ if(!d.rows.length){mbody.innerHTML='<p class="muted">No rows.</p>'+pager}
  else{
   const cols=Object.keys(d.rows[0]);
   mbody.innerHTML='<table><tr>'+cols.map(x=>'<th>'+x+'</th>').join('')+'<th></th></tr>'+
    d.rows.map(row=>'<tr>'+cols.map(x=>'<td>'+String(row[x]??'—').slice(0,60)+'</td>').join('')+
    `<td><button class="rowbtn" onclick='editRow("${name}",${row.id},${JSON.stringify(JSON.stringify(row))})'>Edit</button>`+
-   `<button class="rowbtn del" onclick="delRow('${name}',${row.id})">Delete</button></td></tr>`).join('')+'</table>';
+   `<button class="rowbtn del" onclick="delRow('${name}',${row.id})">Delete</button></td></tr>`).join('')+'</table>'+pager;
  }
  modal.style.display='flex';
 }
@@ -372,7 +342,7 @@ function closeModal(){modal.style.display='none'}
 async function delRow(name,id){
  if(!confirm('Delete '+name+' #'+id+'? This cannot be undone.'))return;
  const r=await fetch(`/admin/api/table/${name}/${id}`,{method:'DELETE'});
- if(r.ok){openTable(name);refresh()}else{alert((await r.json()).detail||'Failed')}
+ if(r.ok){openTable(name,_tbl.offset);refresh()}else{alert((await r.json()).detail||'Failed')}
 }
 async function editRow(name,id,rowJson){
  const edited=prompt('Edit fields as JSON, then OK to save:',rowJson);
@@ -380,7 +350,7 @@ async function editRow(name,id,rowJson){
  try{
   const r=await fetch(`/admin/api/table/${name}/${id}`,{method:'PUT',
    headers:{'Content-Type':'application/json'},body:edited});
-  if(r.ok){openTable(name);refresh()}else{alert((await r.json()).detail||'Rejected')}
+  if(r.ok){openTable(name,_tbl.offset);refresh()}else{alert((await r.json()).detail||'Rejected')}
  }catch(_){alert('Invalid JSON')}
 }
 async function trainNow(){
@@ -388,7 +358,7 @@ async function trainNow(){
  b.disabled=true;b.textContent='Training…';m.textContent='';
  try{const r=await fetch('/admin/api/train',{method:'POST'});
   const d=await r.json();
-  if(r.ok){m.textContent=` published v${d.version} · accuracy ${(d.accuracy*100).toFixed(1)}% · ${d.n_samples} samples (${d.n_real} real) · ${d.backend}`;refresh()}
+  if(r.ok){m.textContent=` published v${d.version} · accuracy ${(d.accuracy*100).toFixed(1)}% · ${d.clips_used} clips used & deleted · ${d.backend}`;refresh()}
   else{m.textContent=' '+(d.detail||'Failed')}
  }catch(_){m.textContent=' Network error'}
  b.disabled=false;b.textContent='⚡ Train now'}

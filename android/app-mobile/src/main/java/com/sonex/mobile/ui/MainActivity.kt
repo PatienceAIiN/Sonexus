@@ -172,9 +172,16 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         netCb = com.sonex.mobile.network.AutoStart.register(this)
         com.sonex.mobile.network.AutoStart.maybeStart(this)
-        // Pull the latest cross-device settings (rules/duck/room/theme) on focus.
-        if (Prefs.isLoggedIn(this)) kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
-            .launch { com.sonex.mobile.data.ServerSync.pullSettings(this@MainActivity) }
+        // Pull the latest cross-device settings + newest trained model on focus,
+        // so model improvements arrive automatically without an app update.
+        if (Prefs.isLoggedIn(this)) kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.sonex.mobile.data.ServerSync.pullSettings(this@MainActivity)
+            val url = Prefs.serverUrl(this@MainActivity)
+            val key = Prefs.deviceKey(this@MainActivity)
+            val id = Prefs.deviceId(this@MainActivity)
+            if (url != null && key != null && id != null)
+                com.sonex.mobile.data.ModelStore(this@MainActivity).sync(url, key, id)
+        }
     }
 
     override fun onPause() {

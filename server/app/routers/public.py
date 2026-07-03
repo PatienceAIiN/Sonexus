@@ -170,7 +170,7 @@ __GSV__
 </style></head><body>
 <nav>
   <span class="logo">SoNex</span>
-  <a href="#features">Features</a><a href="#how">How it works</a><a href="#download" onclick="openDl(event)">Download</a><a href="#contact">Contact</a>
+  <a href="#features">Features</a><a href="#how">How it works</a><a href="#download" onclick="openDl(event)">Download</a><a href="#" onclick="return openContact(event)">Contact</a>
 </nav>
 <div class="hero">
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
@@ -216,31 +216,37 @@ __GSV__
     <li><b>Talk.</b> The volume gets out of the way, then comes back on its own.</li>
   </ol>
 </section>
-<section class="contact" id="contact">
-  <h2>Talk to us</h2>
-  <form onsubmit="return sendContact(event)">
-    <input name="name" placeholder="Your name" required maxlength="100">
-    <input name="email" type="email" placeholder="Email" required maxlength="200">
-    <textarea name="message" placeholder="How can we help?" rows="4" required maxlength="4000"></textarea>
-    <button class="btn primary" type="submit">Send message</button>
-    <div id="contact-status"></div>
-  </form>
-</section>
+<div id="contactModal" onclick="if(event.target===this)closeContact()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(32,33,36,.45);align-items:center;justify-content:center;padding:5vw">
+  <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:0 18px 60px rgba(0,0,0,.25)">
+    <h2 style="margin:0 0 12px">Talk to us</h2>
+    <form onsubmit="return sendContact(event)">
+      <input name="name" placeholder="Your name" required maxlength="100">
+      <input name="email" type="email" placeholder="Email" required maxlength="200">
+      <textarea name="message" placeholder="How can we help?" rows="4" required maxlength="4000"></textarea>
+      <button class="btn primary" type="submit">Send message</button>
+      <div id="contact-status"></div>
+    </form>
+    <button class="btn" style="margin-top:8px" onclick="closeContact()">Close</button>
+  </div>
+</div>
 <footer>
   <span>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></span>
-  <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/changelog">Changelog</a><a href="#contact">Contact</a></div>
+  <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/changelog">Changelog</a><a href="#" onclick="return openContact(event)">Contact</a></div>
 </footer>
 <div id="consent" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;
   background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 24px rgba(32,33,36,.08);
   padding:14px 6vw;display:none;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
   <span style="font-size:.9rem;color:var(--sub)">We use one strictly-necessary cookie for admin sign-in and
-  local storage to remember this choice — no tracking, no ads, no analytics.
-  <a href="/privacy" style="color:var(--violet)">Privacy policy</a></span>
+  local storage to remember this choice — no tracking, no ads, no analytics. Audio is only ever collected
+  if you turn on "Let SoNex learn my home", is used solely to improve detection, is never shared, and is
+  deleted right after training. <a href="/privacy" style="color:var(--violet)">Privacy &amp; audio policy</a></span>
   <button class="btn primary" style="padding:9px 22px" onclick="acceptConsent()">Got it</button>
 </div>
 <script>
 if(!localStorage.getItem('sonex-consent')){document.getElementById('consent').style.display='flex';}
 function acceptConsent(){localStorage.setItem('sonex-consent','1');document.getElementById('consent').style.display='none';}
+function openContact(e){if(e)e.preventDefault();document.getElementById('contactModal').style.display='flex';return false;}
+function closeContact(){document.getElementById('contactModal').style.display='none';}
 const LINES = [
   "The volume that listens back.",
   "Someone talks. TV goes quiet.",
@@ -301,14 +307,31 @@ it adjusts media volume on devices you own and pair yourself.</p>
 accounts used to abuse the service.</p>
 <h2>Acceptable use</h2><p>Don't attempt to access other users' data, disrupt the service,
 or reverse the pairing protocol against devices you don't own.</p>
+<h2>Audio &amp; training data</h2><p>If — and only if — you enable "Let SoNex learn my home", short audio
+clips are collected to improve detection. That audio is used only for training/improvement, is never
+shared with third parties, and is deleted automatically after it has been used for training. You can turn
+this off at any time. See the <a href="/privacy">Privacy Policy</a> for full detail.</p>
 <h2>Changes</h2><p>We may update these terms; continued use after changes means acceptance.
 Questions: <a href="mailto:info@patienceai.in">info@patienceai.in</a>.</p>"""
 
 PRIVACY_BODY = """
 <p>SoNex is private by default: all audio is processed on your phone and immediately
 discarded. Nothing leaves your device unless you switch on a specific, revocable consent.</p>
+<h2>Audio for improvement ("Let SoNex learn my home")</h2>
+<p>Only if you explicitly turn this on — after an in-app confirmation — SoNex uploads short
+audio clips to help improve the detection model. We are clear about exactly what happens:</p>
+<ul>
+<li><b>Purpose only:</b> the audio is used solely to train and improve SoNex's detection. Nothing else.</li>
+<li><b>Never shared:</b> it is not sold, rented, or shared with any third party.</li>
+<li><b>Auto-deleted after training:</b> once a training run has used a clip, that clip is deleted
+automatically — audio is not retained after it has served its single purpose.</li>
+<li><b>Fully optional &amp; revocable:</b> turn it off any time; collection stops immediately, and users
+who never turned it on have no audio collected at all.</li>
+<li><b>Secure:</b> clips are transmitted over HTTPS and stored in access-controlled storage until deletion.</li>
+</ul>
 <h2>What we store</h2><p>With an account: your email and a salted password hash. With consents
-enabled: detection events, volume corrections, and (only with the upload toggle) short audio clips.</p>
+enabled: detection events, volume corrections, and (only with "Let SoNex learn my home") short audio
+clips that are deleted right after training.</p>
 <h2>Your rights</h2><p>Export everything we hold or delete it — in the app
 (Settings → Delete all my data) or via the API. Deletion removes database rows and stored files.</p>
 <h2>Email</h2><p>We send one-time verification codes and password-reset codes via Brevo.
@@ -351,6 +374,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("3.5", "SoNex now improves itself automatically — with your permission. If you turn on 'Let SoNex learn my home' (a clear pop-up explains exactly what happens), SoNex sends short audio clips that are used only to improve detection, are never shared, and are deleted right after training. Training runs on its own every night at 2:00 AM IST, and improved models reach your phone automatically — no app update needed. Turn it off any time and collection stops instantly; if you never turn it on, no audio is ever collected. We've updated the Privacy Policy, Terms and cookie notice to spell all of this out, added an agreement checkbox at sign-up, moved Contact into a quick pop-up, and — importantly — fixed the web app so playing music and video stay full quality (no more phone-call sound)."),
     ("3.4", "SoNex now learns. A new lightweight detection model is trained on open speech and noise datasets plus real (opted-in) usage, then delivered to your phone automatically over the air - so telling apart a person from a loud cooler, fan or vehicle keeps getting better without any app update. The phone uses the learned model when it's available and safely falls back to the built-in detection otherwise. Admins can retrain and publish a fresh model in one click, and see exactly what data went into it."),
     ("3.3", "Smarter in noisy rooms: when someone is talking, SoNex now lowers your media even if a cooler, fan or machine is running - a conversation always wins over background noise, while steady machines and outside sounds (vehicles, etc.) still raise the volume when no one is speaking. The status now tells you exactly what SoNex did: it shows Muted, Paused, Volume raised or Volume lowered to match the action you chose for that device - instead of always saying 'lowered'. The web app is now branded 'SoNex Web' once you open it."),
     ("3.2", "Detection fix: talking is picked up reliably again on both the phone app and SoNex Web (a recent change had made higher-pitched and softer voices slip through). On the web, playing audio (YouTube, music) now stays full quality instead of dropping to phone-call sound - SoNex listens on your built-in mic so Bluetooth stays in high-quality playback. Connected earbuds and Bluetooth speakers show up the moment you open the app, before you press Start. Added a BETA badge."),

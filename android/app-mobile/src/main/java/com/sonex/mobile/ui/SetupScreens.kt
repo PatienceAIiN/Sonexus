@@ -180,6 +180,40 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
     var training by remember { mutableStateOf(Prefs.consentTraining(ctx)) }
     var onDevice by remember { mutableStateOf(Prefs.storeOnDeviceOnly(ctx)) }
     var theme by remember { mutableStateOf(Prefs.themeMode(ctx)) }
+    var showLearnConsent by remember { mutableStateOf(false) }
+
+    if (showLearnConsent) {
+        AlertDialog(
+            onDismissRequest = { showLearnConsent = false },
+            icon = { Icon(Icons.Filled.Shield, null) },
+            title = { Text("Let SoNex learn my home?") },
+            text = {
+                Text(
+                    "To keep improving, SoNex will collect short audio clips from your room and " +
+                    "send them securely for processing.\n\n" +
+                    "• Used only to train and improve SoNex\n" +
+                    "• Never shared with any third party\n" +
+                    "• Automatically deleted right after training\n" +
+                    "• You can turn this off any time\n\n" +
+                    "By continuing you agree to this and to our Privacy & audio policy."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLearnConsent = false
+                    training = true
+                    // Audio collection needs both consents; enable them together.
+                    syncedConsent("c_training", true)
+                    syncedConsent("c_upload", true)
+                    upload = true
+                    toast("Thanks — SoNex will learn and improve. Audio is deleted after training.")
+                }) { Text("I agree") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLearnConsent = false }) { Text("Not now") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -262,7 +296,15 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             }
             ConsentRow("Upload clips to improve SoNex", upload) { upload = it; syncedConsent("c_upload", it) }
             ConsentRow("Anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
-            ConsentRow("Let SoNex learn my home", training) { training = it; syncedConsent("c_training", it) }
+            ConsentRow("Let SoNex learn my home", training) {
+                if (it) {
+                    showLearnConsent = true   // opt-in requires the audio-collection confirmation
+                } else {
+                    training = false; syncedConsent("c_training", false)
+                    upload = false; syncedConsent("c_upload", false)  // stop audio collection immediately
+                    toast("Audio collection off — nothing more is collected")
+                }
+            }
 
             SectionHeader(Icons.Filled.Speaker, "Devices")
             var autoStart by remember { mutableStateOf(Prefs.autoStartOnWifi(ctx)) }

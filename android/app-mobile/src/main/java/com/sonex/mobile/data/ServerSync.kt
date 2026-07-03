@@ -149,6 +149,42 @@ object ServerSync {
         }
     }
 
+    /**
+     * Upload one consented training clip (WAV) with its label. Best-effort and
+     * fire-and-forget; the server deletes the audio right after training. Only
+     * ever called when the user has opted into "Let SoNex learn my home".
+     */
+    fun uploadClip(c: Context, wav: ByteArray, label: String, roomState: String) {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        val key = Prefs.deviceKey(c) ?: return
+        if (base.isBlank()) return
+        val meta = "{\"ts\":\"${java.time.Instant.now()}\",\"duration_ms\":1500," +
+            "\"label\":\"$label\",\"room_state\":\"$roomState\"}"
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val boundary = "sonex" + System.nanoTime().toString(16)
+                val conn = URL("$base/v1/clips").openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000; conn.readTimeout = 20_000
+                conn.requestMethod = "POST"; conn.doOutput = true
+                conn.setRequestProperty("X-Device-Key", key)
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                val dash = "--"; val crlf = "\r\n"
+                conn.outputStream.use { os ->
+                    fun w(s: String) = os.write(s.toByteArray())
+                    w("$dash$boundary$crlf")
+                    w("Content-Disposition: form-data; name=\"meta\"$crlf$crlf$meta$crlf")
+                    w("$dash$boundary$crlf")
+                    w("Content-Disposition: form-data; name=\"file\"; filename=\"clip.wav\"$crlf")
+                    w("Content-Type: audio/wav$crlf$crlf")
+                    os.write(wav); w(crlf)
+                    w("$dash$boundary$dash$crlf")
+                }
+                conn.responseCode
+                conn.disconnect()
+            }
+        }
+    }
+
     /** Pull account settings (login/app-start) and apply to local prefs. */
     suspend fun pullSettings(c: Context) {
         val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")

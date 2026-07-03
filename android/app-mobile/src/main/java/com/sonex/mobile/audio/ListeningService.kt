@@ -46,6 +46,8 @@ class ListeningService : Service() {
 
     @Volatile private var callActive = false
     @Volatile private var lastRoomState = RoomState.QUIET
+    private var collector: ClipCollector? = null
+    @Volatile private var lastClipMs = 0L
 
     companion object {
         const val CHANNEL = "sonex_listening"
@@ -93,8 +95,15 @@ class ListeningService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (engine == null) {
             val cal = Prefs.currentCalibration(this)
+            val col = ClipCollector(DetectionEngine.SAMPLE_RATE)
+            collector = col
             engine = DetectionEngine(cal, buildClassifier(cal)) { state, db -> onState(state, db) }
-                .also { it.start() }
+                .also {
+                    // Keep only a 1.5s rolling buffer in RAM; it is only ever
+                    // uploaded when the user opted into "Let SoNex learn my home".
+                    it.pcmTap = { b, n -> col.append(b, n) }
+                    it.start()
+                }
         }
         return START_STICKY
     }
@@ -109,6 +118,26 @@ class ListeningService : Service() {
         // No native model? Use the OTA-trained lightweight model if we have one.
         store.verifiedFile("lite")?.let { return LiteClassifier(it, cal, fallback) }
         return fallback
+    }
+
+    /** Upload a short labelled training clip — only with consent, rate-limited to
+     *  one clip per 3 minutes. The server trains on it then deletes it. */
+    private fun maybeCollectClip(state: RoomState) {
+        if (state == RoomState.QUIET) return
+        if (!Prefs.consentTraining(this) || !Prefs.consentUploadClips(this)) return
+        val now = System.currentTimeMillis()
+        if (now - lastClipMs < 180_000) return
+        val pcm = collector?.snapshot(DetectionEngine.SAMPLE_RATE) ?: return  // need >= 1s
+        lastClipMs = now
+        val label = when (state) {
+            RoomState.TALKING -> "SPEECH"
+            RoomState.BOOST -> "NOISE"
+            RoomState.WHISPER, RoomState.WHISPER_GROUP -> "WHISPER"
+            RoomState.QUIET -> "QUIET"
+        }
+        com.sonex.mobile.data.ServerSync.uploadClip(
+            this, Wav.encode(pcm, DetectionEngine.SAMPLE_RATE), label, state.name
+        )
     }
 
     /** The rule for whichever output the media is actually playing on now. */
@@ -156,6 +185,7 @@ class ListeningService : Service() {
         stateFlow.value = state to db
         actionLabel.value = statusText(state)
         logEvent(state, db)
+        maybeCollectClip(state)
         // Solo WHISPER = hold everything (RulePolicy returns null anyway) — just
         // show it. WHISPER_GROUP still routes: it gets a gentle duck.
         if (state != RoomState.WHISPER) scope.launch { router.onState(state) }

@@ -119,6 +119,50 @@ async def test_admin_train_publishes_lite_model(client, db, storage, monkeypatch
     assert len([x for x in rows2 if x["kind"] == "lite" and x["status"] == "active"]) == 1
 
 
+async def test_training_consumes_and_deletes_consented_audio(client, db, storage, monkeypatch):
+    import io
+    import wave
+
+    from app.config import settings
+    from .conftest import register_device, grant_consent
+    # A device with the audio consent uploads a real WAV clip labelled SPEECH.
+    reg = await register_device(client)
+    key = reg["api_key"]
+    await grant_consent(client, key, "upload_clips")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes(bytes(2 * 16000))  # ~1s of silence PCM16
+    up = await client.post("/v1/clips", headers={"X-Device-Key": key},
+                           files={"file": ("clip.wav", buf.getvalue(), "audio/wav")},
+                           data={"meta": '{"ts":"2026-07-02T12:00:00Z","duration_ms":1000,'
+                                         '"label":"SPEECH","room_state":"TALKING"}'})
+    assert up.status_code == 201
+    clip_id = up.json()["clip_id"]
+
+    # Train (same job the 02:00 IST scheduler runs): it must use and then DELETE it.
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+    r = await client.post("/admin/api/train")
+    assert r.status_code == 200 and r.json()["clips_used"] >= 1 and r.json()["clips_deleted"] >= 1
+
+    # The audio is gone — row deleted, nothing lingering.
+    from app.models import Clip
+    assert await db.get(Clip, clip_id) is None
+
+
+async def test_admin_table_pagination(client, db, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+    r = await client.get("/admin/api/table/users?offset=0&limit=10")
+    assert r.status_code == 200
+    body = r.json()
+    assert {"rows", "total", "offset", "limit"} <= body.keys() and body["limit"] == 10
+
+
 async def test_changelog_page_and_footer_link(client):
     landing = (await client.get("/")).text
     assert "/changelog" in landing

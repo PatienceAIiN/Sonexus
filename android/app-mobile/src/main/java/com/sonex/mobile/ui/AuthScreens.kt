@@ -31,6 +31,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonex.mobile.data.AuthApi
@@ -53,6 +58,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     var awaitingOtp by remember { mutableStateOf(false) }
     var otp by remember { mutableStateOf("") }
     var showForgot by remember { mutableStateOf(false) }
+    var agreed by remember { mutableStateOf(false) }
 
     val base = (Prefs.serverUrl(ctx) ?: "").removeSuffix("/")
 
@@ -67,7 +73,9 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
     fun submit() {
         error = AuthValidator.emailError(email) ?: AuthValidator.passwordError(password)
-            ?: if (isSignup && confirm != password) "Passwords don't match" else null
+            ?: if (isSignup && confirm != password) "Passwords don't match"
+            else if (isSignup && !agreed) "Please agree to the Terms & Privacy policy to continue"
+            else null
         if (error != null) return
         if (base.isBlank()) { error = "Can't connect right now — try again"; return }
         working = true
@@ -196,6 +204,28 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                     if (isSignup) {
                         Spacer(Modifier.height(12.dp))
                         PasswordField(confirm, { confirm = it; error = null }, "Confirm password")
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(
+                                checked = agreed,
+                                onCheckedChange = { agreed = it; error = null },
+                                modifier = Modifier.clip(androidx.compose.foundation.shape.CircleShape)
+                            )
+                            val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                            Text(
+                                buildAnnotatedString {
+                                    append("I agree to the ")
+                                    pushStyle(SpanStyle(color = MaterialTheme.colorScheme.primary,
+                                        textDecoration = TextDecoration.Underline))
+                                    append("Terms & Privacy"); pop()
+                                    append(" (audio is used only to improve SoNex and deleted after training)")
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable {
+                                    runCatching { uri.openUri("${base.ifBlank { Prefs.DEFAULT_SERVER }}/privacy") }
+                                }
+                            )
+                        }
                     }
                     error?.let {
                         Spacer(Modifier.height(8.dp))
