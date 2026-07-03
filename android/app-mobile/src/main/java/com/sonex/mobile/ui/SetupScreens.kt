@@ -50,13 +50,18 @@ fun CalibrateScreen(onDone: () -> Unit) {
     var media by remember { mutableStateOf(0.0) }
     var talk by remember { mutableStateOf(0.0) }
 
-    fun runStep(seconds: Int, onResult: (Double) -> Unit, next: Int) {
+    var unsteady by remember { mutableStateOf(false) }
+
+    // Percentile per step: silence wants its QUIET part (p20), media the
+    // typical level (p50), media+talk the talk bursts over the TV (p75).
+    fun runStep(seconds: Int, percentile: Double, onResult: (Double) -> Unit, next: Int) {
         scope.launch {
             progress = 0f
-            val db = withContext(Dispatchers.Default) {
-                calibrator.measureDb(seconds) { p -> progress = p }
+            val r = withContext(Dispatchers.Default) {
+                calibrator.measureStep(seconds, percentile) { p -> progress = p }
             }
-            onResult(db); step = next
+            if (com.sonex.core.CalibrationQuality.isUnsteady(r.spreadDb)) unsteady = true
+            onResult(r.levelDb); step = next
         }
     }
 
@@ -88,20 +93,21 @@ fun CalibrateScreen(onDone: () -> Unit) {
                             Button(onClick = { step = 1 }) { Text("Start") }
                         }
                         1 -> StepPrompt("Step 1 of 3 · Silence", "Stay quiet. TV off.", progress) {
-                            runStep(5, { noise = it }, 2)
+                            runStep(5, 20.0, { noise = it }, 2)
                         }
                         2 -> StepPrompt("Step 2 of 3 · TV only", "Play the TV normally. Don't talk.", progress) {
-                            runStep(6, { media = it }, 3)
+                            runStep(6, 50.0, { media = it }, 3)
                         }
                         3 -> StepPrompt("Step 3 of 3 · TV + talking", "Keep the TV playing and talk normally.", progress) {
-                            runStep(7, { talk = it }, 4)
+                            runStep(7, 75.0, { talk = it }, 4)
                         }
                         4 -> {
                             val cal = Calibration(
                                 name = "Living room",
                                 noiseFloorDb = noise, mediaBaselineDb = media, mediaPlusTalkDb = talk
                             )
-                            val problems = com.sonex.core.CalibrationQuality.issues(noise, media, talk)
+                            val problems = com.sonex.core.CalibrationQuality.issues(noise, media, talk).toMutableList()
+                            if (unsteady) problems += "A measurement was unsteady — keep the phone still and the room consistent, then redo"
                             Text(
                                 if (problems.isEmpty()) "Calibration complete" else "Hmm, let's check that",
                                 style = MaterialTheme.typography.headlineMedium

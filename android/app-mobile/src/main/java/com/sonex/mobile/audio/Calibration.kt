@@ -38,7 +38,13 @@ data class Calibration(
  * decision logic stays valid regardless of placement.
  */
 class Calibrator {
-    fun measureDb(seconds: Int, onProgress: (Float) -> Unit): Double {
+    /** One calibration measurement: the chosen percentile + how steady it was. */
+    data class StepResult(val levelDb: Double, val spreadDb: Double)
+
+    fun measureDb(seconds: Int, onProgress: (Float) -> Unit): Double =
+        measureStep(seconds, 50.0, onProgress).levelDb
+
+    fun measureStep(seconds: Int, percentile: Double, onProgress: (Float) -> Unit): StepResult {
         val minBuf = AudioRecord.getMinBufferSize(
             DetectionEngine.SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -52,17 +58,23 @@ class Calibrator {
             maxOf(minBuf, DetectionEngine.FRAME_SAMPLES * 2 * 4)
         )
         val buf = ShortArray(DetectionEngine.FRAME_SAMPLES)
-        val totalFrames = seconds * 1000 / DetectionEngine.FRAME_MS
+        // Discard the first ~0.3s: AGC ramp-up and touch-tap transients would
+        // otherwise poison the anchor.
+        val warmup = 10
+        val totalFrames = seconds * 1000 / DetectionEngine.FRAME_MS + warmup
         val frames = mutableListOf<Double>()
         rec.startRecording()
         try {
             repeat(totalFrames) { i ->
                 val n = rec.read(buf, 0, buf.size)
-                if (n > 0) frames += Dsp.rmsDb(buf, n)
+                if (n > 0 && i >= warmup) frames += Dsp.rmsDb(buf, n)
                 onProgress((i + 1f) / totalFrames)
             }
         } finally { rec.stop(); rec.release() }
-        // Median, not mean: one door slam mustn't skew the room's anchor.
-        return if (frames.isEmpty()) -60.0 else com.sonex.core.Stats.median(frames)
+        if (frames.isEmpty()) return StepResult(-60.0, 0.0)
+        return StepResult(
+            com.sonex.core.Stats.percentile(frames, percentile),
+            com.sonex.core.Stats.iqr(frames)
+        )
     }
 }

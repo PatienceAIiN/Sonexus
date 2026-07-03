@@ -214,3 +214,28 @@ class WhisperTest {
         org.junit.Assert.assertEquals(6, VolumeRamp.steps(4, 6).last())
     }
 }
+
+class PercentileTest {
+    @org.junit.Test fun percentile_bands_and_iqr() {
+        val v = (0..100).map { it.toDouble() }
+        org.junit.Assert.assertEquals(20.0, Stats.percentile(v, 20.0), 0.01)
+        org.junit.Assert.assertEquals(50.0, Stats.median(v), 0.01)
+        org.junit.Assert.assertEquals(75.0, Stats.percentile(v, 75.0), 0.01)
+        org.junit.Assert.assertEquals(50.0, Stats.iqr(v), 0.01)
+        org.junit.Assert.assertEquals(0.0, Stats.percentile(emptyList(), 50.0), 0.0)
+    }
+
+    @org.junit.Test fun talk_step_p75_survives_tv_only_gaps() {
+        // Step 3 reality: 60% frames are TV-only (-35dB), 40% talk bursts (-24dB).
+        val frames = List(60) { -35.0 } + List(40) { -24.0 }
+        val median = Stats.median(frames)          // lands on TV-only level
+        val p75 = Stats.percentile(frames, 75.0)   // captures the talking
+        org.junit.Assert.assertEquals(-35.0, median, 0.5)
+        org.junit.Assert.assertEquals(-24.0, p75, 0.5)
+    }
+
+    @org.junit.Test fun unsteady_measurements_are_flagged() {
+        org.junit.Assert.assertTrue(CalibrationQuality.isUnsteady(15.0))
+        org.junit.Assert.assertFalse(CalibrationQuality.isUnsteady(6.0))
+    }
+}

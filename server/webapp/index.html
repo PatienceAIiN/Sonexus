@@ -122,7 +122,7 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
     <div class="dev"><span class="em">💻</span><div style="flex:1">
       <div class="nm">This device</div><div class="st"><span class="dot on"></span>Mic + speakers</div></div></div>
     <div class="dev"><span class="em">🎧</span><div style="flex:1">
-      <div class="nm">Bluetooth</div><div class="st"><span class="dot off"></span>Follows this device's output</div></div></div>
+      <div class="nm">Bluetooth</div><div class="st"><span class="dot on"></span>Connected speakers just work — they follow this device's audio</div></div></div>
     <div class="dev"><span class="em">📡</span><div style="flex:1">
       <div class="nm">Cast</div><div class="st"><span class="dot off"></span>Use Chrome's cast menu</div></div></div>
     <div class="dev"><span class="em">📺</span><div style="flex:1">
@@ -328,14 +328,28 @@ function onState(){
  tvReact();syncLottie();
  $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding"}[state];
  $("status").style.color=COLORS[state]}
+async function builtinMic(){
+ try{
+  const tmp=await navigator.mediaDevices.getUserMedia({audio:true}); // unlock labels
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  tmp.getTracks().forEach(t=>t.stop());
+  const bad=/bluetooth|hands-?free|headset|airpod|buds/i;
+  const mic=devs.find(d=>d.kind==="audioinput"&&d.label&&!bad.test(d.label));
+  return mic?{deviceId:{exact:mic.deviceId}}:{}
+ }catch(_){return{}}}
 async function startListening(){
  busy($("startBtn"),true,"Starting…");
- try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+ try{const micSel=await builtinMic();
+  stream=await navigator.mediaDevices.getUserMedia({audio:{...micSel,
+  echoCancellation:true,noiseSuppression:false,autoGainControl:false}})}
  catch(_){busy($("startBtn"),false,"▶ Start");$("status").textContent="Microphone permission needed";return}
  audioCtx=new AudioContext({sampleRate:16000});
  const src=audioCtx.createMediaStreamSource(stream);
  const proc=audioCtx.createScriptProcessor(512,1,1);
- src.connect(proc);proc.connect(audioCtx.destination);
+ // Route through a MUTED gain: mic never reaches the speakers, and silent
+ // output keeps the processor alive without touching playback.
+ const mute=audioCtx.createGain();mute.gain.value=0;
+ src.connect(proc);proc.connect(mute);mute.connect(audioCtx.destination);
  proc.onaudioprocess=e=>{
   const b=e.inputBuffer.getChannelData(0);
   let sum=0,cross=0;for(let i=0;i<b.length;i++){sum+=b[i]*b[i];if(i&&(b[i]>=0)!==(b[i-1]>=0))cross++}
@@ -387,25 +401,31 @@ function calUi(){
  if(calStep===0){$("calTitle").textContent="Let's tune SoNex";$("calBody").textContent="Three quick steps teach SoNex this room.";$("calGo").textContent="Start";$("calResult").textContent=""}
  else if(calStep<=3){const[t,b]=CAL_STEPS[calStep-1];$("calTitle").textContent=t;$("calBody").textContent=b;$("calGo").textContent="Measure"}
 }
-async function measure(sec){
- const st=await navigator.mediaDevices.getUserMedia({audio:true});
+async function measure(sec,pctl){
+ const micSel=await builtinMic();
+ const st=await navigator.mediaDevices.getUserMedia({audio:{...micSel}});
  const ctx=new AudioContext({sampleRate:16000});
  const src=ctx.createMediaStreamSource(st);const pr=ctx.createScriptProcessor(512,1,1);
- src.connect(pr);pr.connect(ctx.destination);
- const dbs=[];$("calProg").style.display="block";
+ const mute=ctx.createGain();mute.gain.value=0;
+ src.connect(pr);pr.connect(mute);mute.connect(ctx.destination);
+ const dbs=[];let warm=10;$("calProg").style.display="block"; // discard AGC ramp-up
  await new Promise(res=>{const t0=Date.now();
   pr.onaudioprocess=e=>{const b=e.inputBuffer.getChannelData(0);let s2=0;
    for(let i=0;i<b.length;i++)s2+=b[i]*b[i];
-   const rms=Math.sqrt(s2/b.length);dbs.push(rms>0?20*Math.log10(rms):-100);
+   const rms=Math.sqrt(s2/b.length);
+   if(warm>0)warm--;else dbs.push(rms>0?20*Math.log10(rms):-100);
    const pct=Math.min(100,(Date.now()-t0)/(sec*10));$("calProg").value=pct;
    if(Date.now()-t0>=sec*1000)res()}});
  st.getTracks().forEach(t=>t.stop());ctx.close();$("calProg").style.display="none";
- dbs.sort((a,b)=>a-b);return dbs[Math.floor(dbs.length/2)]||-60}
+ dbs.sort((a,b)=>a-b);
+ if(!dbs.length)return-60;
+ const at=q=>dbs[Math.min(dbs.length-1,Math.floor(q/100*(dbs.length-1)))];
+ return at(pctl??50)}
 $("calGo").onclick=async()=>{
  if(calStep===-1){calStep=0;calUi();show("home");return} // "Done"
  if(calStep===0){calStep=1;calUi();return}
  busy($("calGo"),true,"Measuring…");
- try{anchors[calStep-1]=await measure(CAL_STEPS[calStep-1][2])}
+ try{anchors[calStep-1]=await measure(CAL_STEPS[calStep-1][2],[20,50,75][calStep-1])}
  catch(_){busy($("calGo"),false,"Measure");toast("Microphone permission needed");return}
  busy($("calGo"),false,"Measure");
  if(calStep<3){calStep++;calUi()}

@@ -3,12 +3,28 @@ package com.sonex.core
 /** Small numeric helpers shared by detection + calibration. */
 object Stats {
     /** Median — robust to a door slam or cough in the middle of a measurement. */
-    fun median(values: List<Double>): Double {
+    fun median(values: List<Double>): Double = percentile(values, 50.0)
+
+    /**
+     * Percentile with linear interpolation. Calibration uses different bands
+     * per step: the silence step wants the QUIET part of the recording (p20,
+     * ignoring rustles), media wants the typical level (p50), and media+talk
+     * wants the talk bursts riding on top of the TV (p75) — a plain median
+     * there can land on TV-only gaps and collapse the talk gap.
+     */
+    fun percentile(values: List<Double>, p: Double): Double {
         if (values.isEmpty()) return 0.0
         val s = values.sorted()
-        val mid = s.size / 2
-        return if (s.size % 2 == 1) s[mid] else (s[mid - 1] + s[mid]) / 2
+        val rank = (p / 100.0) * (s.size - 1)
+        val lo = rank.toInt().coerceIn(0, s.size - 1)
+        val hi = (lo + 1).coerceAtMost(s.size - 1)
+        val frac = rank - lo
+        return s[lo] * (1 - frac) + s[hi] * frac
     }
+
+    /** Interquartile range — how unsteady a measurement was. */
+    fun iqr(values: List<Double>): Double =
+        percentile(values, 75.0) - percentile(values, 25.0)
 }
 
 /**
@@ -141,6 +157,10 @@ object RoomProfile {
 object CalibrationQuality {
     const val MIN_MEDIA_GAP_DB = 5.0   // media must sit clearly above the floor
     const val MIN_TALK_GAP_DB = 2.0    // talking must add measurably to media
+    /** IQR above this means the room changed mid-measurement (steps 1-2). */
+    const val UNSTEADY_IQR_DB = 12.0
+
+    fun isUnsteady(spreadDb: Double) = spreadDb > UNSTEADY_IQR_DB
 
     fun issues(noiseFloorDb: Double, mediaBaselineDb: Double, mediaPlusTalkDb: Double): List<String> {
         val problems = mutableListOf<String>()

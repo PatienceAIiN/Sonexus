@@ -348,6 +348,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("2.7", "Calibration got a brain upgrade: it now ignores mic warm-up noise, measures each step the smart way, and tells you if the room was too unsteady to trust."),
     ("2.6", "Room level now reads as a simple 0-100 meter - no more confusing negative numbers."),
     ("2.5", "The home animation now dances all the time - soft grey while resting, glowing with the room's mood while listening."),
     ("2.4", "One login, everywhere: change a setting on your phone and SoNex Web follows within seconds - and vice versa. The web now shows the app's live animation, and browser back works naturally."),
