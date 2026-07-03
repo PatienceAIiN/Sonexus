@@ -97,7 +97,7 @@ class ListeningService : Service() {
             val cal = Prefs.currentCalibration(this)
             val col = ClipCollector(DetectionEngine.SAMPLE_RATE)
             collector = col
-            engine = DetectionEngine(cal, buildClassifier(cal)) { state, db -> onState(state, db) }
+            engine = DetectionEngine(cal, buildClassifier(cal), MicSource.best(this)) { state, db -> onState(state, db) }
                 .also {
                     // Keep only a 1.5s rolling buffer in RAM; it is only ever
                     // uploaded when the user opted into "Let SoNex learn my home".

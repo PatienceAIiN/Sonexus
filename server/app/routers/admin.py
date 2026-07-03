@@ -222,6 +222,34 @@ async def admin_train(db: AsyncSession = Depends(get_db)):
     return report
 
 
+@router.get("/admin/api/clips", dependencies=[Depends(require_admin)])
+async def admin_clips(offset: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """Consented audio clips awaiting the next training run (then auto-deleted)."""
+    limit = max(1, min(limit, 200)); offset = max(0, offset)
+    total = (await db.execute(select(func.count()).select_from(Clip))).scalar() or 0
+    rows = (await db.execute(
+        select(Clip).order_by(Clip.id.desc()).offset(offset).limit(limit)
+    )).scalars().all()
+    return {"total": total, "offset": offset, "limit": limit, "clips": [
+        {"id": c.id, "label": c.label, "room_state": c.room_state,
+         "ts": str(c.ts)[:19], "duration_ms": c.duration_ms, "size_bytes": c.size_bytes,
+         "backend": c.backend} for c in rows]}
+
+
+@router.get("/admin/api/clip/{clip_id}/audio", dependencies=[Depends(require_admin)])
+async def admin_clip_audio(clip_id: int, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import Response
+    from ..storage import get_storage
+    clip = await db.get(Clip, clip_id)
+    if clip is None:
+        raise HTTPException(status_code=404, detail="Unknown clip")
+    try:
+        data = get_storage().get(clip.storage_key)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Audio no longer available")
+    return Response(content=data, media_type="audio/wav")
+
+
 DASH = """<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoNex Admin</title><meta name="robots" content="noindex">
@@ -288,6 +316,7 @@ async function refresh(){
  uptime.textContent='· up '+Math.floor(s.uptime_sec/60)+' min';
  const c=s.counts;
  counts.innerHTML=Object.entries(c).map(([k,v])=>`<div class="card" onclick="openTable('${k}')"><b>${v}</b><span>${k}</span></div>`).join('')
+  +`<div class="card" onclick="openClips()" style="outline:2px solid #7C4DFF33"><b>${c.clips??0}</b><span>🎧 uploaded audio ▶</span></div>`
   +`<div class="card"><b class="${s.health.db?'ok':'bad'}">${s.health.db?'✓':'✗'}</b><span>database</span></div>`
   +`<div class="card"><b class="${s.health.redis?'ok':'bad'}">${s.health.redis?'✓':'✗'}</b><span>redis</span></div>`;
  const lt=s.last_train||{};
@@ -353,6 +382,28 @@ async function editRow(name,id,rowJson){
   if(r.ok){openTable(name,_tbl.offset);refresh()}else{alert((await r.json()).detail||'Rejected')}
  }catch(_){alert('Invalid JSON')}
 }
+let _clipOff=0;
+async function openClips(offset){
+ _clipOff=Math.max(0,offset||0);
+ const r=await fetch(`/admin/api/clips?offset=${_clipOff}&limit=25`);
+ if(!r.ok){alert('Unavailable');return}
+ const d=await r.json();
+ const from=d.total?d.offset+1:0,to=d.offset+d.clips.length;
+ mtitle.textContent=`Uploaded audio · ${from}-${to} of ${d.total}`;
+ const hasPrev=d.offset>0,hasNext=to<d.total;
+ const pager=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+   <button class="rowbtn" ${hasPrev?'':'disabled'} onclick="openClips(${Math.max(0,d.offset-d.limit)})">‹ Prev</button>
+   <button class="rowbtn" ${hasNext?'':'disabled'} onclick="openClips(${d.offset+d.limit})">Next ›</button></div>`;
+ if(!d.clips.length){mbody.innerHTML='<p class="muted">No audio collected yet. Clips appear here only for users who enabled "Let SoNex learn my home", and are deleted right after each training run.</p>'+pager}
+ else{
+  mbody.innerHTML='<audio id="clipPlayer" controls style="width:100%;margin-bottom:12px"></audio>'+
+   '<table><tr><th>ID</th><th>Label</th><th>Room state</th><th>When</th><th>ms</th><th>KB</th><th></th></tr>'+
+   d.clips.map(x=>`<tr><td>${x.id}</td><td>${x.label??'—'}</td><td>${x.room_state??'—'}</td><td>${x.ts}</td><td>${x.duration_ms??'—'}</td><td>${x.size_bytes?Math.round(x.size_bytes/1024):'—'}</td>`+
+    `<td><button class="rowbtn" onclick="playClip(${x.id})">▶ Play</button></td></tr>`).join('')+'</table>'+pager;
+ }
+ modal.style.display='flex';
+}
+function playClip(id){const p=document.getElementById('clipPlayer');if(!p)return;p.src='/admin/api/clip/'+id+'/audio';p.play().catch(()=>{});}
 async function trainNow(){
  const b=document.getElementById('trainBtn'),m=document.getElementById('trainMsg');
  b.disabled=true;b.textContent='Training…';m.textContent='';

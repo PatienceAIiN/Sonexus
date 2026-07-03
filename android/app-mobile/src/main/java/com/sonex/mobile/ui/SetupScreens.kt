@@ -42,7 +42,7 @@ import kotlinx.coroutines.withContext
 fun CalibrateScreen(onDone: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val calibrator = remember { Calibrator() }
+    val calibrator = remember { Calibrator(com.sonex.mobile.audio.MicSource.best(ctx)) }
 
     var step by remember { mutableStateOf(0) } // 0 intro,1 silence,2 media,3 talk,4 done
     var progress by remember { mutableStateOf(0f) }

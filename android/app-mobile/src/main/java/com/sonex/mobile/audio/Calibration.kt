@@ -37,7 +37,10 @@ data class Calibration(
  * measures lower numbers, and because we use the *gaps* between anchors, the
  * decision logic stays valid regardless of placement.
  */
-class Calibrator {
+class Calibrator(
+    /** Same RAW source the detector uses, so calibrated levels match runtime. */
+    private val source: Int = MediaRecorder.AudioSource.UNPROCESSED
+) {
     /** One calibration measurement: the chosen percentile + how steady it was. */
     data class StepResult(val levelDb: Double, val spreadDb: Double)
 
@@ -51,7 +54,7 @@ class Calibrator {
             AudioFormat.ENCODING_PCM_16BIT
         )
         val rec = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            source,
             DetectionEngine.SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,

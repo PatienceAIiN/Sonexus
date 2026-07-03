@@ -21,6 +21,8 @@ import com.sonex.core.RoomStateMachine
 class DetectionEngine(
     private val calibration: Calibration,
     private val classifier: FrameClassifier,
+    /** RAW mic source (matches the web app) — see [MicSource]. */
+    private val audioSource: Int = MediaRecorder.AudioSource.UNPROCESSED,
     private val onState: (RoomState, Double) -> Unit
 ) {
     companion object {
@@ -47,14 +49,14 @@ class DetectionEngine(
             AudioFormat.ENCODING_PCM_16BIT
         )
         val rec = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION, // OS-side noise cleanup
+            audioSource, // RAW audio (no AGC/NS) so speech modulation survives — like the web app
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
             maxOf(minBuf, FRAME_SAMPLES * 2 * 4)
         )
-        // Echo cancellation when the phone is the audio source.
-        if (AcousticEchoCanceler.isAvailable()) {
+        // Only add echo cancellation on processed sources; UNPROCESSED must stay raw.
+        if (audioSource != MediaRecorder.AudioSource.UNPROCESSED && AcousticEchoCanceler.isAvailable()) {
             aec = AcousticEchoCanceler.create(rec.audioSessionId)?.apply { enabled = true }
         }
         record = rec

@@ -152,6 +152,37 @@ async def test_training_consumes_and_deletes_consented_audio(client, db, storage
     assert await db.get(Clip, clip_id) is None
 
 
+async def test_admin_can_list_and_play_uploaded_audio(client, db, storage, monkeypatch):
+    import io
+    import wave
+
+    from app.config import settings
+    from .conftest import register_device, grant_consent
+    reg = await register_device(client)
+    key = reg["api_key"]
+    await grant_consent(client, key, "upload_clips")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(bytes(16000))
+    up = await client.post("/v1/clips", headers={"X-Device-Key": key},
+                           files={"file": ("clip.wav", buf.getvalue(), "audio/wav")},
+                           data={"meta": '{"ts":"2026-07-02T12:00:00Z","duration_ms":500,'
+                                         '"label":"SPEECH","room_state":"TALKING"}'})
+    cid = up.json()["clip_id"]
+
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+
+    lst = await client.get("/admin/api/clips")
+    assert lst.status_code == 200 and any(c["id"] == cid for c in lst.json()["clips"])
+    audio = await client.get(f"/admin/api/clip/{cid}/audio")
+    assert audio.status_code == 200 and audio.headers["content-type"] == "audio/wav" and audio.content[:4] == b"RIFF"
+    # Not reachable without the admin cookie.
+    client.cookies.clear()
+    assert (await client.get("/admin/api/clips")).status_code == 401
+
+
 async def test_admin_table_pagination(client, db, monkeypatch):
     from app.config import settings
     monkeypatch.setattr(settings, "admin_password", "Test@10")

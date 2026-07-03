@@ -1,4 +1,4 @@
 {
-  "mobile": {"version_code": 26, "version_name": "3.5", "key": "apk/sonex-mobile.apk"},
-  "tv":     {"version_code": 26, "version_name": "3.5", "key": "apk/sonex-tv.apk"}
+  "mobile": {"version_code": 27, "version_name": "3.6", "key": "apk/sonex-mobile.apk"},
+  "tv":     {"version_code": 27, "version_name": "3.6", "key": "apk/sonex-tv.apk"}
 }
