@@ -14,6 +14,8 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 .logo{font-weight:900;font-size:2rem;letter-spacing:-1px;background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF);
  background-size:300% 300%;-webkit-background-clip:text;background-clip:text;color:transparent;
  animation:shimmer 6s ease infinite,breathe 2.6s ease-in-out infinite;display:inline-block}
+.beta{font-size:.5em;font-weight:800;letter-spacing:.5px;vertical-align:super;margin-left:4px;
+ color:#fff;background:#7C4DFF;-webkit-text-fill-color:#fff;padding:2px 6px;border-radius:999px;top:0}
 @keyframes shimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 header{display:flex;align-items:center;justify-content:space-between;padding:12px 5vw;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
@@ -64,10 +66,15 @@ a{color:var(--violet)} footer{margin-top:36px;text-align:center;color:var(--sub)
 #modal{display:none;position:fixed;inset:0;background:rgba(32,33,36,.5);z-index:20;align-items:center;justify-content:center;padding:6vw}
 #modal.on{display:flex}
 #modal .box{background:var(--bg);border-radius:18px;padding:24px;max-width:380px;width:100%;animation:pop .25s ease}
-h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
+h2{font-size:1.3rem;margin:2px 0 12px}h3{font-size:1.02rem;margin:0 0 8px}
+.card h3{margin-top:0}.dev:last-child{border-bottom:0}
+.sel{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:inherit;font-size:.95rem;margin-top:4px;-webkit-appearance:none;appearance:none}
+.hero{text-align:center;padding-top:8px}
+.actions{display:flex;gap:12px;margin-top:18px}.actions .cta{margin-top:0;flex:1}
+.field+.field{margin-top:14px}.field label{font-size:.8rem;color:var(--sub);font-weight:600}
 @media(max-width:480px){main{padding:16px 4vw 50px}.logo{font-size:1.7rem}}
 </style></head><body>
-<header><span class="logo">SoNex</span><span class="row">
+<header><span class="logo">SoNex<sup class="beta">BETA</sup></span><span class="row">
  <button id="themeBtn" class="iconbtn" title="Theme">
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round">
    <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
@@ -106,16 +113,18 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
 </div>
 
 <div id="home" class="view">
-  <div id="lottieWrap" style="width:230px;height:230px;margin:0 auto;transition:filter .5s">
-    <dotlottie-player id="lottie" src="https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
-      style="width:100%;height:100%" loop speed="3"></dotlottie-player>
+  <div class="hero">
+    <div id="lottieWrap" style="width:220px;height:220px;margin:0 auto;transition:filter .5s">
+      <dotlottie-player id="lottie" src="https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
+        style="width:100%;height:100%" loop speed="3"></dotlottie-player>
+    </div>
+    <canvas id="orb" width="240" height="240" style="display:none;margin:0 auto"></canvas>
+    <div id="status">Ready</div>
+    <p class="muted" id="dbLine">&nbsp;</p>
   </div>
-  <canvas id="orb" width="240" height="240" style="display:none"></canvas>
-  <div id="status">Ready</div>
-  <p class="muted center" id="dbLine">&nbsp;</p>
-  <div class="center row" style="justify-content:center">
-    <button id="startBtn" class="cta" style="max-width:200px">▶ Start</button>
-    <button id="calBtn" class="cta ghost" style="max-width:200px">🎚 Calibrate</button>
+  <div class="actions">
+    <button id="startBtn" class="cta">▶ Start</button>
+    <button id="calBtn" class="cta ghost">🎚 Calibrate</button>
   </div>
   <div class="card">
     <h3>Devices</h3>
@@ -149,11 +158,11 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
     <input id="duck" type="range" min="10" max="80" value="30">
   </div>
   <div class="card"><h3>Audio devices</h3>
-    <p class="muted">Which microphone SoNex listens with</p>
-    <select id="micSel" style="width:100%;padding:11px;border-radius:8px;border:1px solid #dadce0;background:#fff"></select>
-    <p class="muted" style="margin-top:12px">Where sound plays (earbuds, speakers…)</p>
-    <select id="spkSel" style="width:100%;padding:11px;border-radius:8px;border:1px solid #dadce0;background:#fff"></select>
-    <p class="muted" id="usingLine" style="margin-top:12px"></p>
+    <div class="field"><label>Microphone SoNex listens with</label>
+      <select id="micSel" class="sel"></select></div>
+    <div class="field"><label>Where sound plays (earbuds, speakers…)</label>
+      <select id="spkSel" class="sel"></select></div>
+    <p class="muted" id="usingLine" style="margin-top:14px"></p>
   </div>
   <div class="card"><h3>When someone talks…</h3>
     <p class="muted">Choose what each device does. Synced to your phone and TV.</p>
@@ -363,9 +372,11 @@ function onState(){
  tvReact();syncLottie();
  $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding",WHISPER_GROUP:"Whispering 🤫 — easing down"}[state];
  $("status").style.color=COLORS[state]}
-// Pick the mic: an explicit choice from Settings wins; otherwise, if a
-// Bluetooth headset/earbuds are connected we listen through THEM (so you can
-// walk away from the phone); if none, we fall back to the built-in mic.
+// Pick the mic. An explicit choice in Settings wins. Otherwise we DELIBERATELY
+// use the built-in mic, NOT a Bluetooth one: opening a BT earbud's mic forces
+// the system into HFP/SCO "call mode", which drops music/YouTube to narrowband
+// phone-call quality. Listening on the built-in mic keeps Bluetooth in
+// high-quality A2DP playback. (You can still force a BT mic from Settings.)
 async function chosenMic(){
  try{
   const tmp=await navigator.mediaDevices.getUserMedia({audio:true}); // unlock labels
@@ -373,16 +384,18 @@ async function chosenMic(){
   tmp.getTracks().forEach(t=>t.stop());
   const pick=localStorage.getItem("sonex_mic_id");
   if(pick&&devs.some(d=>d.deviceId===pick&&d.kind==="audioinput"))return{deviceId:{exact:pick}};
-  const bt=/bluetooth|hands-?free|headset|airpod|buds/i;
-  const mic=devs.find(d=>d.kind==="audioinput"&&d.label&&bt.test(d.label)) // prefer earbuds if present
+  const mic=devs.find(d=>d.kind==="audioinput"&&d.label&&!BT.test(d.label)) // built-in first
    ||devs.find(d=>d.kind==="audioinput"&&d.label);
   return mic?{deviceId:{exact:mic.deviceId}}:{}
  }catch(_){return{}}}
 async function startListening(){
  busy($("startBtn"),true,"Starting…");
  try{const micSel=await chosenMic();
+  // echoCancellation OFF: with it on, the browser drops into voice-call mode and
+  // degrades everything else (YouTube) to narrowband "phone-call" audio. We only
+  // analyse levels, so we want the raw, full-quality mic and untouched playback.
   stream=await navigator.mediaDevices.getUserMedia({audio:{...micSel,
-  echoCancellation:true,noiseSuppression:false,autoGainControl:false}})}
+  echoCancellation:false,noiseSuppression:false,autoGainControl:false}})}
  catch(_){busy($("startBtn"),false,"▶ Start");$("status").textContent="Microphone permission needed";return}
  audioCtx=new AudioContext({sampleRate:16000});
  const src=audioCtx.createMediaStreamSource(stream);
@@ -396,7 +409,7 @@ async function startListening(){
   const b=e.inputBuffer.getChannelData(0);
   let sum=0,cross=0;for(let i=0;i<b.length;i++){sum+=b[i]*b[i];if(i&&(b[i]>=0)!==(b[i-1]>=0))cross++}
   const rms=Math.sqrt(sum/b.length);db=rms>0?20*Math.log10(rms):-100;
-  const zcr=cross/b.length,speech=zcr>=0.05&&zcr<=0.25,whisper=zcr>=0.12&&zcr<=0.55;
+  const zcr=cross/b.length,speech=zcr>=0.05&&zcr<=0.35,whisper=zcr>=0.12&&zcr<=0.55;
   const k=classify(db,speech,whisper);observe(db,k);step(k);
   $("dbLine").textContent=`Room level: ${Math.max(0,Math.min(100,Math.round(db+100)))}/100`};
  listening=true;busy($("startBtn"),false,"■ Stop");$("startBtn").style.background="#d93025";
@@ -411,18 +424,18 @@ function stopListening(){
 $("startBtn").onclick=()=>listening?stopListening():startListening();
 // ---- audio device picker + live Bluetooth status (instant, no refresh) ----
 const BT=/bluetooth|hands-?free|headset|airpod|buds|wireless|tws|earbud|earphone/i;
-let _prevSig="",_labelsUnlocked=false;
+let _labelsUnlocked=false,_unlockTried=false;
 // Device LABELS are hidden by the browser until mic permission is granted; without
-// them we can't name a Bluetooth device. If permission is already granted we grab
-// a throwaway stream once to unlock labels — no prompt, since it's pre-granted.
+// them we can't name or detect a Bluetooth device BEFORE the user hits Start.
+// So we unlock permission once, up front (grabbing + immediately dropping a
+// throwaway stream). If already granted this is silent; otherwise it prompts once.
 async function unlockLabels(){
- if(_labelsUnlocked||listening)return;
+ if(_labelsUnlocked||listening||_unlockTried)return;
+ _unlockTried=true;
  try{
-  let ok=false;
-  try{const p=await navigator.permissions.query({name:"microphone"});ok=p.state==="granted"}catch(_){ok=true}
-  if(!ok)return;
-  const t=await navigator.mediaDevices.getUserMedia({audio:true});t.getTracks().forEach(x=>x.stop());
-  _labelsUnlocked=true;
+  const t=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false}});
+  t.getTracks().forEach(x=>x.stop());
+  _labelsUnlocked=true;await refreshDevices();
  }catch(_){}}
 async function refreshDevices(){
  let devs=[];try{devs=await navigator.mediaDevices.enumerateDevices()}catch(_){}
@@ -431,7 +444,7 @@ async function refreshDevices(){
   el.innerHTML=`<option value="">${auto}</option>`+list.map((d,i)=>
    `<option value="${d.deviceId}">${d.label||"Device "+(i+1)}</option>`).join("");
   el.value=cur};
- fill("micSel",ins,"sonex_mic_id","Automatic (earbuds if connected)");
+ fill("micSel",ins,"sonex_mic_id","Automatic (built-in mic — best quality)");
  fill("spkSel",outs,"sonex_spk_id","This device's default");
  // Bluetooth line: match by label when we have them; else infer from a
  // non-default extra output appearing (a TWS shows up as a 2nd output).
@@ -443,12 +456,16 @@ async function refreshDevices(){
   else if(extraOut){dot.className="dot on";st.textContent="Wireless audio connected — ready to listen & play"}
   else{dot.className="dot off";st.textContent="No Bluetooth audio device connected"}}}
 // Fire whenever the device set changes; devicechange is ~instant on connect.
+// IMPORTANT: only re-open the mic when a Bluetooth INPUT genuinely appears or
+// disappears — never on every enumerate (labels populating after permission
+// would otherwise thrash stop/start and detection would never settle).
+let _hadBtMic=null;
 async function onDevices(){await unlockLabels();await refreshDevices();
- // If a Bluetooth mic just appeared and we're auto-selecting, hop onto it live.
  if(listening&&!localStorage.getItem("sonex_mic_id")){
   let devs=[];try{devs=await navigator.mediaDevices.enumerateDevices()}catch(_){}
-  const sig=devs.map(d=>d.deviceId).join(",");
-  if(sig!==_prevSig){_prevSig=sig;stopListening();startListening()}}}
+  const hasBt=devs.some(d=>d.kind==="audioinput"&&d.label&&BT.test(d.label));
+  if(_hadBtMic!==null&&hasBt!==_hadBtMic){_hadBtMic=hasBt;stopListening();startListening()}
+  else _hadBtMic=hasBt}}
 async function applySink(){const id=localStorage.getItem("sonex_spk_id");
  if(id&&audioCtx&&audioCtx.setSinkId)try{await audioCtx.setSinkId(id)}catch(_){}}
 if($("micSel"))$("micSel").onchange=e=>{localStorage.setItem("sonex_mic_id",e.target.value);
@@ -457,6 +474,10 @@ if($("spkSel"))$("spkSel").onchange=e=>{localStorage.setItem("sonex_spk_id",e.ta
 if(navigator.mediaDevices){
  navigator.mediaDevices.addEventListener?.("devicechange",onDevices);
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)onDevices()});
+ // First real user gesture: retry the permission unlock in case the load-time
+ // attempt was blocked without a gesture — then BT shows without pressing Start.
+ document.addEventListener("pointerdown",()=>{
+  if(!_labelsUnlocked){_unlockTried=false;unlockLabels()}},{once:true});
  onDevices();setInterval(onDevices,1500); // safety net: some browsers skip devicechange for BT
 }
 // ---- per-device rules (parity with the phone app), synced across logins ----
@@ -465,8 +486,8 @@ const RULES=["DUCK","MUTE","PAUSE","BOOST"],RULE_LABEL={DUCK:"Lower",MUTE:"Mute"
 function ruleFor(id){return localStorage.getItem("sonex_rule_"+id)||"DUCK"}
 function renderRules(){const box=$("ruleRows");if(!box)return;
  box.innerHTML=RULE_TARGETS.map(([id,label])=>
-  `<div class="switch"><span>${label}</span><select data-rule="${id}"
-    style="padding:8px;border-radius:8px;border:1px solid #dadce0;background:#fff">`+
+  `<div class="switch"><span>${label}</span><select data-rule="${id}" class="sel"
+    style="width:auto;max-width:150px;margin-top:0">`+
    RULES.map(r=>`<option value="${r}"${ruleFor(id)===r?" selected":""}>${RULE_LABEL[r]}</option>`).join("")+
   `</select></div>`).join("");
  box.querySelectorAll("[data-rule]").forEach(sel=>sel.onchange=e=>{

@@ -33,7 +33,7 @@ object Dsp {
      * hum (low ZCR) and hiss (high ZCR). SEAM for ML models (Silero/YAMNet).
      */
     fun isSpeechShaped(buf: ShortArray, n: Int = buf.size): Boolean =
-        zeroCrossingRate(buf, n) in 0.05..0.25   // voiced band (narrowed: fricative whispers excluded)
+        zeroCrossingRate(buf, n) in 0.05..0.35   // voiced band
 
     /**
      * Whispers are UNVOICED — all breath, no vocal-cord tone — so their ZCR

@@ -331,4 +331,18 @@ class GroupWhisperTest {
             noiseFloorDb = -55.0, dbSwingDb = 7.0, whisperShaped = true)
         org.junit.Assert.assertNotEquals(FrameKind.NOISE, k)
     }
+
+    @org.junit.Test fun normal_talking_reaches_talking_and_ducks() {
+        // End-to-end guard: sustained voiced speech above the trigger must reach
+        // TALKING (regression cover for the "talking not detected" report).
+        val m = RoomStateMachine(talkOnFrames = 17, quietOffFrames = 100)
+        repeat(20) {
+            val k = RoomStateMachine.classify(-24.0, speechShaped = true, trigger = -31.0,
+                boostTrigger = -27.0, noiseFloorDb = -55.0, dbSwingDb = 9.0)
+            m.step(k)
+        }
+        org.junit.Assert.assertEquals(RoomState.TALKING, m.state)
+        org.junit.Assert.assertEquals(Action.DUCK,
+            RulePolicy.commandFor(RoomState.TALKING, TargetRule.DUCK, 30, 100)!!.action)
+    }
 }

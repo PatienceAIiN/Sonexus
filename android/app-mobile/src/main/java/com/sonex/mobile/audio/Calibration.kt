@@ -19,7 +19,7 @@ data class Calibration(
     val noiseFloorDb: Double = -55.0,
     val mediaBaselineDb: Double = -35.0,
     val mediaPlusTalkDb: Double = -25.0,
-    val sensitivity: Double = 0.5,   // 0..1
+    val sensitivity: Double = 0.6,   // 0..1 — a touch sensitive out-of-box (before calibration)
     val restoreDelaySec: Int = 3
 ) {
     /** Trigger sits between "media only" and "media + talk". */
