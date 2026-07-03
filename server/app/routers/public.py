@@ -338,6 +338,8 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("2.0", "Voice volume now shows the on-screen slider gliding on phone and TV. Voice reacts in a blink. Clearer status when the mic is off."),
+    ("1.9", "TV pairing fix. TV app is now light-themed. Friendlier error messages. What's-new page (you're reading it)."),
     ("1.8", "Say amounts: \u201cSoNex, increase volume by 20\u201d. Wake-word on/off switch. Privacy policy opens inside the app. Smoother, minimal status animation. Smaller, faster app."),
     ("1.7", "One tidy Calibrate button. Instant reactions on every speaker at once."),
     ("1.6", "Whisper-aware: whispering never lowers your volume. Volume now fades gently instead of jumping. Big reliability fixes for detection."),
