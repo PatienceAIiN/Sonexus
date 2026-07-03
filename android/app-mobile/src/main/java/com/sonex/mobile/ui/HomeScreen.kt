@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -35,8 +33,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sonex.core.Action
-import com.sonex.core.Command
 import com.sonex.core.RoomState
 import com.sonex.mobile.audio.ListeningService
 import com.sonex.mobile.data.Prefs
@@ -247,7 +243,7 @@ fun HomeScreen(
     }
 }
 
-/** One controllable output: status + manual mute / volume-restore. */
+/** One output SoNex manages automatically — status only, no manual knobs. */
 @Composable
 private fun DeviceRow(
     id: String,
@@ -256,10 +252,9 @@ private fun DeviceRow(
     scope: kotlinx.coroutines.CoroutineScope,
     action: Pair<String, () -> Unit>? = null
 ) {
-    fun send(cmd: Command) = scope.launch { ListeningService.manualCommands.emit(id to cmd) }
     Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
@@ -269,12 +264,6 @@ private fun DeviceRow(
             }
             if (action != null) {
                 TextButton(onClick = action.second) { Text(action.first) }
-            }
-            IconButton(onClick = { send(Command(Action.MUTE, reason = "manual")) }) {
-                Icon(Icons.AutoMirrored.Filled.VolumeOff, "Mute $name")
-            }
-            IconButton(onClick = { send(Command(Action.RESTORE, reason = "manual")) }) {
-                Icon(Icons.AutoMirrored.Filled.VolumeUp, "Restore $name")
             }
         }
     }

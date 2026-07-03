@@ -51,12 +51,6 @@ class ListeningService : Service() {
         const val CHANNEL = "sonex_listening"
         val stateFlow = kotlinx.coroutines.flow.MutableStateFlow(RoomState.QUIET to -60.0)
 
-        /** Manual device controls from the UI: (targetId, command). "all" broadcasts. */
-        val manualCommands =
-            kotlinx.coroutines.flow.MutableSharedFlow<Pair<String, com.sonex.core.Command>>(
-                extraBufferCapacity = 16
-            )
-
         /** True while the service (mic) is running. Only the user stops it. */
         val running = kotlinx.coroutines.flow.MutableStateFlow(false)
     }
@@ -85,14 +79,6 @@ class ListeningService : Service() {
             val key = Prefs.deviceKey(this@ListeningService) ?: return@launch
             val id = Prefs.deviceId(this@ListeningService) ?: return@launch
             ModelStore(this@ListeningService).sync(url, key, id)
-        }
-
-        // Manual per-device controls from the Home screen.
-        scope.launch {
-            manualCommands.collect { (id, cmd) ->
-                if (id == "all") router.broadcast(cmd)
-                else router.activeTargets().find { it.id == id }?.send(cmd)
-            }
         }
 
         callMonitor = CallMonitor(this) { active -> onCallState(active) }.also { it.start() }
