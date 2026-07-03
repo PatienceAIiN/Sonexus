@@ -216,19 +216,42 @@ __GSV__
     <li><b>Talk.</b> The volume gets out of the way, then comes back on its own.</li>
   </ol>
 </section>
-<div id="contactModal" onclick="if(event.target===this)closeContact()" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(32,33,36,.45);align-items:center;justify-content:center;padding:5vw">
-  <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:0 18px 60px rgba(0,0,0,.25)">
-    <h2 style="margin:0 0 12px">Talk to us</h2>
+<div id="contactModal" onclick="if(event.target===this)closeContact()">
+  <div class="cm-box">
+    <div class="cm-head"><h2>Talk to us</h2>
+      <button class="cm-x" onclick="closeContact()" aria-label="Close">&times;</button></div>
+    <p class="cm-sub">Questions, feedback or partnership — we usually reply within a day.</p>
     <form onsubmit="return sendContact(event)">
-      <input name="name" placeholder="Your name" required maxlength="100">
-      <input name="email" type="email" placeholder="Email" required maxlength="200">
-      <textarea name="message" placeholder="How can we help?" rows="4" required maxlength="4000"></textarea>
-      <button class="btn primary" type="submit">Send message</button>
+      <input class="cm-in" name="name" placeholder="Your name" required maxlength="100">
+      <input class="cm-in" name="email" type="email" placeholder="Email" required maxlength="200">
+      <textarea class="cm-in" name="message" placeholder="How can we help?" rows="4" required maxlength="4000"></textarea>
+      <button class="cm-send" type="submit">Send message</button>
       <div id="contact-status"></div>
     </form>
-    <button class="btn" style="margin-top:8px" onclick="closeContact()">Close</button>
   </div>
 </div>
+<style>
+ #contactModal{display:none;position:fixed;inset:0;z-index:60;background:rgba(32,33,36,.5);
+   align-items:center;justify-content:center;padding:5vw}
+ #contactModal .cm-box{background:#fff;border-radius:20px;max-width:440px;width:100%;
+   padding:26px 26px 24px;box-shadow:0 24px 70px rgba(32,33,36,.32);animation:pop .25s ease}
+ #contactModal .cm-head{display:flex;align-items:center;justify-content:space-between}
+ #contactModal h2{margin:0;font-size:1.5rem}
+ #contactModal .cm-sub{margin:6px 0 18px;color:var(--sub);font-size:.92rem;line-height:1.4}
+ #contactModal .cm-x{border:0;background:#f1f3f4;color:#5f6368;width:34px;height:34px;border-radius:50%;
+   font-size:1.4rem;line-height:1;cursor:pointer;flex:none}
+ #contactModal .cm-x:hover{background:#e8eaed}
+ #contactModal .cm-in{width:100%;box-sizing:border-box;padding:13px 15px;margin-bottom:12px;
+   border:1.5px solid var(--line);border-radius:12px;font-size:1rem;font-family:inherit;
+   background:#fbfbfd;transition:border-color .15s,box-shadow .15s;resize:vertical}
+ #contactModal .cm-in:focus{outline:none;border-color:var(--violet);background:#fff;
+   box-shadow:0 0 0 3px rgba(124,77,255,.15)}
+ #contactModal textarea.cm-in{min-height:104px}
+ #contactModal .cm-send{width:100%;padding:14px;border:0;border-radius:12px;background:var(--violet);
+   color:#fff;font-weight:700;font-size:1.02rem;cursor:pointer;transition:transform .12s,filter .15s}
+ #contactModal .cm-send:hover{filter:brightness(1.06)} #contactModal .cm-send:active{transform:scale(.98)}
+ #contactModal #contact-status{text-align:center;color:var(--teal);min-height:1.4em;margin-top:10px;font-size:.9rem}
+</style>
 <footer>
   <span>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></span>
   <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/changelog">Changelog</a><a href="#" onclick="return openContact(event)">Contact</a></div>
@@ -374,6 +397,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("3.7", "SoNex now genuinely learns and gets better on its own — and that improvement reaches every device without any update. Detection accuracy jumped from about 84% to 95% thanks to a smarter model, and from now on it keeps improving automatically each night from a rich, balanced mix of real (opted-in) sounds — talking, discussions, murmuring, coolers, fans, machines, vehicles and more — which is deleted right after training. Crucially: a new model is only ever used if it's at least as accurate, so it never gets worse. These accuracy and smart-listening gains flow automatically to the phone AND SoNex Web with no app or site update (updates are only ever needed for new features or fixes). The admin panel now shows the live accuracy trend and improvement per run, and the Contact form is a cleaner pop-up."),
     ("3.6", "The Android app now detects just as sharply as SoNex Web. It listens to your room with the raw microphone (no automatic gain levelling), which preserves the subtle rise-and-fall that tells a talking person apart from a steady cooler or fan — so talking ducks reliably and machines boost, matching the web experience. Admins get a new 'Uploaded audio' card: open it to see consented clips awaiting training and play any of them right in the browser (they're still deleted automatically after training)."),
     ("3.5", "SoNex now improves itself automatically — with your permission. If you turn on 'Let SoNex learn my home' (a clear pop-up explains exactly what happens), SoNex sends short audio clips that are used only to improve detection, are never shared, and are deleted right after training. Training runs on its own every night at 2:00 AM IST, and improved models reach your phone automatically — no app update needed. Turn it off any time and collection stops instantly; if you never turn it on, no audio is ever collected. We've updated the Privacy Policy, Terms and cookie notice to spell all of this out, added an agreement checkbox at sign-up, moved Contact into a quick pop-up, and — importantly — fixed the web app so playing music and video stay full quality (no more phone-call sound)."),
     ("3.4", "SoNex now learns. A new lightweight detection model is trained on open speech and noise datasets plus real (opted-in) usage, then delivered to your phone automatically over the air - so telling apart a person from a loud cooler, fan or vehicle keeps getting better without any app update. The phone uses the learned model when it's available and safely falls back to the built-in detection otherwise. Admins can retrain and publish a fresh model in one click, and see exactly what data went into it."),

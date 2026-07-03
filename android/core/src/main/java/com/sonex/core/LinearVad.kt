@@ -36,9 +36,12 @@ data class LinearVad(
         get() = weights.isNotEmpty() && weights.size == classes.size &&
             bias.size == classes.size && weights.all { it.size == NUM_FEATURES }
 
-    /** Build the standardised feature vector for one frame. */
+    /** Build the standardised feature vector for one frame. Raw 3 measurements
+     *  are expanded to 5 engineered features — MUST match server training.expand(). */
     private fun features(rmsOverFloorDb: Double, zcr: Double, swingDb: Double): DoubleArray {
-        val raw = doubleArrayOf(rmsOverFloorDb, zcr, swingDb)
+        val voiced = if (zcr in 0.05..0.35) 1.0 else 0.0
+        val steady = if (swingDb < ModulationTracker.STEADY_SWING_DB) 1.0 else 0.0
+        val raw = doubleArrayOf(rmsOverFloorDb, zcr, swingDb, voiced, steady)
         if (mean.size == NUM_FEATURES && std.size == NUM_FEATURES) {
             for (i in raw.indices) {
                 val s = std[i]; if (s > 1e-9) raw[i] = (raw[i] - mean[i]) / s
@@ -72,7 +75,7 @@ data class LinearVad(
     }
 
     companion object {
-        const val NUM_FEATURES = 3
+        const val NUM_FEATURES = 5   // rms-over-floor, zcr, swing, voiced-band, steady
 
         fun labelToKind(label: String): FrameKind = when (label) {
             "SPEECH" -> FrameKind.SPEECH

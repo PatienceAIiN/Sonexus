@@ -98,7 +98,8 @@ class Model(Base):
 class Metric(Base):
     __tablename__ = "metrics"
     id: Mapped[int] = mapped_column(primary_key=True)
-    home_id: Mapped[int] = mapped_column(ForeignKey("homes.id"), index=True)
+    # null = global metric (e.g. model training accuracy, not tied to one home)
+    home_id: Mapped[int | None] = mapped_column(ForeignKey("homes.id"), nullable=True, index=True)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     name: Mapped[str] = mapped_column(String(50))
     value: Mapped[float] = mapped_column(Float)

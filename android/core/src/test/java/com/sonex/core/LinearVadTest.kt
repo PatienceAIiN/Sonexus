@@ -6,15 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinearVadTest {
-    // Hand-built model: SPEECH keys off modulation swing, NOISE off loud+steady.
+    // Hand-built 5-feature model [rms, zcr, swing, voiced_band, steady].
+    // SPEECH = voiced + not steady; NOISE = loud + steady.
     private val vad = LinearVad(
         version = "t",
         classes = listOf("QUIET", "SPEECH", "NOISE", "WHISPER"),
         weights = listOf(
-            listOf(0.0, 0.0, 0.0),    // QUIET
-            listOf(0.0, 0.0, 1.0),    // SPEECH: high swing
-            listOf(0.2, 0.0, -1.0),   // NOISE: loud + steady (low swing)
-            listOf(0.0, 3.0, 0.0)     // WHISPER: high zcr
+            listOf(0.0, 0.0, 0.0, 0.0, 0.0),    // QUIET
+            listOf(0.0, 0.0, 0.0, 3.0, -3.0),   // SPEECH: voiced, not steady
+            listOf(0.2, 0.0, 0.0, -2.0, 3.0),   // NOISE: loud + steady
+            listOf(0.0, 5.0, 0.0, 0.0, 0.0)     // WHISPER: high zcr
         ),
         bias = listOf(0.0, 0.0, 0.0, 0.0)
     )
@@ -44,7 +45,7 @@ class LinearVadTest {
     }
 
     @Test fun standardisation_is_applied_when_present() {
-        val z = vad.copy(mean = listOf(10.0, 0.2, 6.0), std = listOf(5.0, 0.1, 4.0))
+        val z = vad.copy(mean = listOf(10.0, 0.2, 6.0, 0.5, 0.5), std = listOf(5.0, 0.1, 4.0, 0.5, 0.5))
         // Should still produce a valid distribution and a decisive class.
         val p = z.probabilities(20.0, 0.15, 12.0)
         assertEquals(1.0, p.sum(), 1e-9)

@@ -23,7 +23,19 @@ import math
 import random
 
 CLASSES = ["QUIET", "SPEECH", "NOISE", "WHISPER"]
-FEATURES = ["rms_over_floor_db", "zcr", "swing_db"]
+# Raw features the phone measures, then two engineered flags that make the linear
+# model far more accurate (they encode the non-linear cues the heuristic used):
+#   voiced_band = 1 if ZCR is in the voiced-speech band, steady = 1 if barely modulated.
+FEATURES = ["rms_over_floor_db", "zcr", "swing_db", "voiced_band", "steady"]
+STEADY_SWING = 5.0
+
+
+def expand(f3: list[float]) -> list[float]:
+    """Raw [rms_over_floor, zcr, swing] -> 5-feature vector. MUST match Kotlin LinearVad."""
+    rms, zcr, swing = f3[0], f3[1], f3[2]
+    voiced = 1.0 if 0.05 <= zcr <= 0.35 else 0.0
+    steady = 1.0 if swing < STEADY_SWING else 0.0
+    return [rms, zcr, swing, voiced, steady]
 
 # Acoustic priors distilled from the open datasets listed in the admin panel
 # (Common Voice/LibriSpeech = voiced speech; MUSAN/ESC-50/AudioSet = machines &
@@ -79,9 +91,9 @@ def _softmax(logits: list[float]) -> list[float]:
 
 def train(
     extra_samples: list[tuple[list[float], int]] | None = None,
-    per_class: int = 240,
-    epochs: int = 300,
-    lr: float = 0.3,
+    per_class: int = 400,
+    epochs: int = 600,
+    lr: float = 0.5,
     seed: int = 7,
 ) -> dict:
     """Train the softmax model; return a dict ready to serialise + ship.
@@ -93,7 +105,7 @@ def train(
         # weight real data ~3x by duplication so it steers without swamping priors
         data += extra_samples * 3
 
-    raw = [f for f, _ in data]
+    raw = [expand(f) for f, _ in data]  # 3 raw -> 5 engineered features
     labels = [y for _, y in data]
     X, mean, std = _standardise(raw)
     nfeat = len(FEATURES)

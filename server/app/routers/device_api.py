@@ -137,6 +137,25 @@ async def model_manifest(
     return {"models": models, "thresholds": thresholds}
 
 
+@router.get("/models/lite")
+async def active_lite_model(db: AsyncSession = Depends(get_db)):
+    """The active lightweight model as JSON, for SoNex Web (which has no device
+    key). Model weights aren't sensitive, so this is open — it lets the browser
+    self-improve alongside the phone with no app/site update."""
+    from fastapi.responses import Response
+    m = (await db.execute(
+        select(Model).where(Model.kind == "lite", Model.status == "active")
+        .order_by(Model.id.desc()).limit(1)
+    )).scalars().first()
+    if m is None:
+        raise HTTPException(status_code=404, detail="No model yet")
+    try:
+        data = get_storage().get(m.storage_key)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Model unavailable")
+    return Response(content=data, media_type="application/json")
+
+
 @router.get("/models/{model_id}/download")
 async def download_model(
     model_id: int,

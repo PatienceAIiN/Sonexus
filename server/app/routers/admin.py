@@ -320,18 +320,22 @@ async function refresh(){
   +`<div class="card"><b class="${s.health.db?'ok':'bad'}">${s.health.db?'✓':'✗'}</b><span>database</span></div>`
   +`<div class="card"><b class="${s.health.redis?'ok':'bad'}">${s.health.redis?'✓':'✗'}</b><span>redis</span></div>`;
  const lt=s.last_train||{};
+ const imp=lt.improvement_pct!=null?` (${lt.improvement_pct>=0?'+':''}${lt.improvement_pct}%)`:'';
  document.getElementById('lastTrain').textContent=lt.version
-  ?`Last run: v${lt.version} · accuracy ${(lt.accuracy*100).toFixed(1)}% · ${lt.clips_used} clips used & deleted · ${lt.n_samples} samples · ${lt.at||''}`
+  ?`Last run: v${lt.version} · accuracy ${(lt.accuracy*100).toFixed(1)}%${imp} · ${lt.clips_used} clips used & deleted · ${lt.n_samples} samples · ${lt.at||''}`
   :'No training run yet this session — fires automatically at 02:00 IST.';
  const rows=s.models.map(m=>`<tr><td>${m.id}</td><td>${m.home_id??'—'}</td><td>${m.kind}</td><td>${m.version}</td><td>${m.status}</td><td>${m.created_at.slice(0,19)}</td></tr>`).join('');
  models.innerHTML='<tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr>'+rows;
  const pts=s.metrics.filter(m=>m.name==='accuracy');
- if(pts.length>1){
+ if(pts.length>=1){
   const w=600,h=70,min=Math.min(...pts.map(p=>p.value)),max=Math.max(...pts.map(p=>p.value))||1;
-  const path=pts.map((p,i)=>`${i?'L':'M'}${i*w/(pts.length-1)},${h-4-(p.value-min)/(max-min||1)*(h-8)}`).join(' ');
+  const path=pts.length>1
+   ?pts.map((p,i)=>`${i?'L':'M'}${i*w/(pts.length-1)},${h-4-(p.value-min)/(max-min||1)*(h-8)}`).join(' ')
+   :`M0,${h/2} L${w},${h/2}`;
   chart.setAttribute('viewBox',`0 0 ${w} ${h}`);
-  chart.innerHTML=`<path d="${path}" fill="none" stroke="#0d9488" stroke-width="2"/>`;
-  chartlabel.textContent=`accuracy: latest ${(pts.at(-1).value*100).toFixed(1)}% · ${pts.length} points (auto-refreshes every 3s)`;
+  chart.innerHTML=`<path d="${path}" fill="none" stroke="#0d9488" stroke-width="2"/>`
+   +`<circle cx="${w}" cy="${h-4-(pts.at(-1).value-min)/(max-min||1)*(h-8)}" r="4" fill="#0d9488"/>`;
+  chartlabel.textContent=`accuracy: latest ${(pts.at(-1).value*100).toFixed(1)}% · ${pts.length} run(s) (auto-refresh)`;
  } else { chartlabel.textContent='No metrics yet — they appear after the first training run.'; }
  // Datasets + consented-clip label distribution.
  if(s.datasets){datasets.innerHTML='<tr><th>Source</th><th>Type</th><th>Licence</th><th>What it improves</th></tr>'+
@@ -409,11 +413,11 @@ async function trainNow(){
  b.disabled=true;b.textContent='Training…';m.textContent='';
  try{const r=await fetch('/admin/api/train',{method:'POST'});
   const d=await r.json();
-  if(r.ok){m.textContent=` published v${d.version} · accuracy ${(d.accuracy*100).toFixed(1)}% · ${d.clips_used} clips used & deleted · ${d.backend}`;refresh()}
+  if(r.ok){const imp=d.improvement_pct!=null?` (${d.improvement_pct>=0?'+':''}${d.improvement_pct}%)`:'';m.textContent=` published v${d.version} · accuracy ${(d.accuracy*100).toFixed(1)}%${imp} · ${d.clips_used} clips used & deleted · ${d.backend}`;refresh()}
   else{m.textContent=' '+(d.detail||'Failed')}
  }catch(_){m.textContent=' Network error'}
  b.disabled=false;b.textContent='⚡ Train now'}
-function start(){refresh();timer=setInterval(refresh,3000)}
+function start(){refresh();timer=setInterval(refresh,2000)}
 const login_=document.getElementById('login');
 p.addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 refresh(); // already signed in? jump straight to the dashboard

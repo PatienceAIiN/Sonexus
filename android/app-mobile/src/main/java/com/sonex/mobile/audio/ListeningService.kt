@@ -48,6 +48,9 @@ class ListeningService : Service() {
     @Volatile private var lastRoomState = RoomState.QUIET
     private var collector: ClipCollector? = null
     @Volatile private var lastClipMs = 0L
+    private val lastClipByLabel = HashMap<String, Long>()
+    private var clipsToday = 0
+    private var clipDayStart = 0L
 
     companion object {
         const val CHANNEL = "sonex_listening"
@@ -59,6 +62,9 @@ class ListeningService : Service() {
         /** Human-readable action for the CURRENT state on the active output —
          *  reflects the user's per-device rule (muted / paused / lowered / …). */
         val actionLabel = kotlinx.coroutines.flow.MutableStateFlow("Ready")
+
+        /** Max consented training clips uploaded per day (keeps it light). */
+        const val DAILY_CLIP_CAP = 120
     }
 
     override fun onCreate() {
@@ -120,21 +126,31 @@ class ListeningService : Service() {
         return fallback
     }
 
-    /** Upload a short labelled training clip — only with consent, rate-limited to
-     *  one clip per 3 minutes. The server trains on it then deletes it. */
+    /** Upload a short labelled training clip — only with consent. Gathers a rich,
+     *  BALANCED spread across every category (speech/discussion/gossip/fighting =>
+     *  SPEECH, vehicles/coolers/machinery/external => NOISE, murmuring => WHISPER,
+     *  and quiet) via per-label cooldowns, with a small overall gap and a daily
+     *  cap. The server trains on it then deletes it. */
     private fun maybeCollectClip(state: RoomState) {
-        if (state == RoomState.QUIET) return
         if (!Prefs.consentTraining(this) || !Prefs.consentUploadClips(this)) return
         val now = System.currentTimeMillis()
-        if (now - lastClipMs < 180_000) return
-        val pcm = collector?.snapshot(DetectionEngine.SAMPLE_RATE) ?: return  // need >= 1s
-        lastClipMs = now
+        // Reset the daily counter each 24h so collection keeps refreshing over time.
+        if (now - clipDayStart > 86_400_000L) { clipDayStart = now; clipsToday = 0 }
+        if (clipsToday >= DAILY_CLIP_CAP) return
+        if (now - lastClipMs < 15_000) return  // don't burst
         val label = when (state) {
             RoomState.TALKING -> "SPEECH"
             RoomState.BOOST -> "NOISE"
             RoomState.WHISPER, RoomState.WHISPER_GROUP -> "WHISPER"
             RoomState.QUIET -> "QUIET"
         }
+        // Per-label cooldown keeps the dataset balanced (quiet is sampled sparsely).
+        val cooldown = if (label == "QUIET") 300_000L else 60_000L
+        if (now - (lastClipByLabel[label] ?: 0L) < cooldown) return
+        val pcm = collector?.snapshot(DetectionEngine.SAMPLE_RATE) ?: return  // need >= 1s
+        lastClipMs = now
+        lastClipByLabel[label] = now
+        clipsToday++
         com.sonex.mobile.data.ServerSync.uploadClip(
             this, Wav.encode(pcm, DetectionEngine.SAMPLE_RATE), label, state.name
         )

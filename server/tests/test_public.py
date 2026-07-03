@@ -152,6 +152,22 @@ async def test_training_consumes_and_deletes_consented_audio(client, db, storage
     assert await db.get(Clip, clip_id) is None
 
 
+async def test_web_can_fetch_active_lite_model(client, db, storage, monkeypatch):
+    from app.config import settings
+    # No model yet -> 404.
+    assert (await client.get("/v1/models/lite")).status_code == 404
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+    assert (await client.post("/admin/api/train")).status_code == 200
+    client.cookies.clear()
+    # The browser (no auth) can now self-improve with the same model as the phone.
+    r = await client.get("/v1/models/lite")
+    assert r.status_code == 200
+    m = r.json()
+    assert m["classes"] and len(m["weights"]) == len(m["classes"]) and len(m["weights"][0]) == 5
+
+
 async def test_admin_can_list_and_play_uploaded_audio(client, db, storage, monkeypatch):
     import io
     import wave
@@ -181,6 +197,26 @@ async def test_admin_can_list_and_play_uploaded_audio(client, db, storage, monke
     # Not reachable without the admin cookie.
     client.cookies.clear()
     assert (await client.get("/admin/api/clips")).status_code == 401
+
+
+async def test_rules_and_commands_sync_across_three_devices(client, db):
+    """Phone ⇄ Web share settings/rules over one account; both drive the paired TV.
+    No hard refresh: web polls /v1/settings every 2s and the TV polls the relay."""
+    from .conftest import login
+    auth = await login(client, db, "tri@sonex.test", "longenough8")
+    # Phone sets a per-device rule; Web (same account token) reads it straight back.
+    await client.put("/v1/settings", json={"rules": {"tv": "MUTE", "bt": "DUCK"}}, headers=auth)
+    got = (await client.get("/v1/settings", headers=auth)).json()
+    assert got["rules"] == {"tv": "MUTE", "bt": "DUCK"}
+    # A TV registers and the account pairs it; a command queued by phone/web arrives.
+    reg = await client.post("/v1/tv/register", json={"code": "2468", "name": "Sony"})
+    tvh = {"X-Tv-Key": reg.json()["tv_key"]}
+    assert (await client.post("/v1/tv/pair", json={"code": "2468"}, headers=auth)).status_code == 200
+    assert (await client.post("/v1/tv/command", json={"action": "MUTE", "level": -1},
+                              headers=auth)).status_code == 200
+    cmds = (await client.get("/v1/tv/poll", headers=tvh)).json()["commands"]
+    assert cmds and cmds[0]["action"] == "MUTE"
+    assert (await client.get("/v1/tv/poll", headers=tvh)).json()["commands"] == []  # delivered once
 
 
 async def test_admin_table_pagination(client, db, monkeypatch):
