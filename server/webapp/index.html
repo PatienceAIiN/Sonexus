@@ -5,6 +5,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <meta name="theme-color" content="#7C4DFF">
+<script type="module" src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.3.0/dist/dotlottie-wc.js"
+ onerror="document.getElementById('lottieWrap').style.display='none';document.getElementById('orb').style.display='block'"></script>
 <style>
 :root{--violet:#7C4DFF;--teal:#0d9488;--coral:#FF5C7A;--amber:#FFB020;--ink:#202124;--sub:#5f6368;--line:#e8eaed;--bg:#fff;--card:#f8f9fa}
 [data-theme=dark]{--ink:#eee;--sub:#b9b3cc;--line:#2a2344;--bg:#0E0B1A;--card:#1E1836}
@@ -105,7 +107,11 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
 </div>
 
 <div id="home" class="view">
-  <canvas id="orb" width="240" height="240"></canvas>
+  <div id="lottieWrap" style="width:230px;height:230px;margin:0 auto;transition:filter .5s">
+    <dotlottie-wc id="lottie" src="https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
+      style="width:100%;height:100%" loop speed="3"></dotlottie-wc>
+  </div>
+  <canvas id="orb" width="240" height="240" style="display:none"></canvas>
   <div id="status">Ready</div>
   <p class="muted center" id="dbLine">&nbsp;</p>
   <div class="center row" style="justify-content:center">
@@ -115,20 +121,19 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
   <div class="card">
     <h3>Devices</h3>
     <div class="dev"><span class="em">💻</span><div style="flex:1">
-      <div class="nm">This device</div><div class="st"><span class="dot on"></span>Mic + speakers · rule: <b id="rDevice">Duck</b></div></div></div>
+      <div class="nm">This device</div><div class="st"><span class="dot on"></span>Mic + speakers</div></div></div>
     <div class="dev"><span class="em">🎧</span><div style="flex:1">
-      <div class="nm">Bluetooth</div><div class="st"><span class="dot off"></span>Follows this device's output · rule: <b id="rBt">Duck</b></div></div></div>
+      <div class="nm">Bluetooth</div><div class="st"><span class="dot off"></span>Follows this device's output</div></div></div>
     <div class="dev"><span class="em">📡</span><div style="flex:1">
-      <div class="nm">Cast</div><div class="st"><span class="dot off"></span>Use Chrome's cast menu · rule: <b id="rCast">Duck</b></div></div></div>
+      <div class="nm">Cast</div><div class="st"><span class="dot off"></span>Use Chrome's cast menu</div></div></div>
     <div class="dev"><span class="em">📺</span><div style="flex:1">
-      <div class="nm">SoNex TV</div><div class="st"><span class="dot off" id="tvDot"></span><span id="tvSt">Not paired</span> · rule: <b id="rTv">Duck</b></div></div>
+      <div class="nm">SoNex TV</div><div class="st"><span class="dot off" id="tvDot"></span><span id="tvSt">Not paired</span></div></div>
       <button id="tvPairBtn" class="ghost cta" style="width:auto;margin:0;padding:9px 16px">Pair</button></div>
   </div>
 </div>
 
 <div id="calibrate" class="view">
-  <div class="row" style="justify-content:space-between"><h2>Calibrate</h2>
-    <button id="calBack" class="iconbtn" title="Back">←</button></div>
+  <h2>Calibrate</h2>
   <div class="card center">
     <h3 id="calTitle">Let's tune SoNex</h3>
     <p class="muted" id="calBody">Three quick steps teach SoNex this room.</p>
@@ -139,8 +144,7 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
 </div>
 
 <div id="settings" class="view">
-  <div class="row" style="justify-content:space-between"><h2>Settings</h2>
-    <button id="backBtn" class="iconbtn" title="Back">←</button></div>
+  <h2>Settings</h2>
   <div class="card"><h3>Response</h3>
     <p class="muted">Duck to <span id="duckVal">30</span>% when someone talks</p>
     <input id="duck" type="range" min="10" max="80" value="30">
@@ -150,11 +154,7 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
     <span class="chip on" data-r="LIVING">Living room</span><span class="chip" data-r="HALL">Hall</span>
     <span class="chip" data-r="OPEN">Open space</span>
   </div>
-  <div class="card"><h3>When someone talks, each source should…</h3>
-    <div id="rules"></div>
-  </div>
   <div class="card"><h3>Privacy</h3>
-    <div class="switch"><span>Keep my data on this device</span><input type="checkbox" id="cDevice" checked></div>
     <div class="switch"><span>Anonymous usage stats</span><input type="checkbox" id="cTele"></div>
     <div class="switch"><span>Let SoNex learn my home</span><input type="checkbox" id="cTrain"></div>
     <p class="muted"><a href="/privacy">Privacy policy</a> · <a href="/changelog">What's new</a></p>
@@ -176,7 +176,7 @@ h2{font-size:1.3rem}h3{font-size:1.02rem;margin-bottom:4px}
  <div class="box" style="background:var(--bg);border-radius:18px;padding:24px;max-width:400px;width:100%">
   <h3>📺 Pair your TV</h3>
   <p class="muted" style="margin-top:8px">Open SoNex TV on the television and type the
-  4-digit code it shows. Works from anywhere — no same-Wi-Fi needed.</p>
+  4-digit code it shows.</p>
   <input id="tvCode" inputmode="numeric" maxlength="4" placeholder="4-digit code" class="center" style="letter-spacing:10px;font-size:1.4rem">
   <div class="err" id="tvErr"></div>
   <button id="tvPairDo" class="cta">Connect</button>
@@ -245,7 +245,7 @@ window.onpopstate=e=>{
  const v=e.state?.v||(token?"home":"auth");
  render(v)};
 history.replaceState({v:token?"home":"auth"},"","#"+(token?"home":"auth"));
-$("settingsBtn").onclick=()=>show("settings"); $("backBtn").onclick=()=>show("home");
+$("settingsBtn").onclick=()=>show("settings");
 // ---- eye toggles ----
 document.querySelectorAll(".eye").forEach(e=>e.onclick=ev=>{ev.preventDefault();
  const i=$(e.dataset.for);i.type=i.type==="password"?"text":"password";e.textContent=i.type==="password"?"👁":"🙈"});
@@ -308,12 +308,21 @@ async function sendTv(action,level){
  fetch("/v1/tv/command",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
   body:JSON.stringify({action,level:level??-1})}).catch(()=>{})}
 function tvReact(){
- const rule=ruleOf("tv");
- if(state==="TALKING")sendTv({Duck:"DUCK",Mute:"MUTE",Pause:"PAUSE",Boost:"DUCK"}[rule],+$("duck").value);
- else if(state==="BOOST"&&rule!=="Pause")sendTv("BOOST",100);
- else if(state==="QUIET")sendTv(rule==="Pause"?"RESUME":"RESTORE")}
+ if(state==="TALKING")sendTv("DUCK",+$("duck").value);
+ else if(state==="BOOST")sendTv("BOOST",100);
+ else if(state==="QUIET")sendTv("RESTORE")}
+// tint the shared Lottie to the state colour (same look as the app)
+const HUES={QUIET:"grayscale(1) sepia(1) saturate(500%) hue-rotate(120deg)",
+ TALKING:"grayscale(1) sepia(1) saturate(500%) hue-rotate(290deg)",
+ BOOST:"grayscale(1) sepia(1) saturate(600%) hue-rotate(0deg)",
+ WHISPER:"grayscale(1) sepia(1) saturate(500%) hue-rotate(215deg)"};
+function syncLottie(){
+ const w=$("lottieWrap");if(!w)return;
+ w.style.filter=listening?HUES[state]:"grayscale(1) opacity(.45)";
+ const el=$("lottie");const d=el&&el.dotLottie;
+ if(d){try{listening?d.play():d.pause()}catch(_){}}}
 function onState(){
- tvReact();
+ tvReact();syncLottie();
  $("status").textContent={QUIET:"Listening",TALKING:"Talking — ducking",BOOST:"Loud room — boosting",WHISPER:"Whispering 🤫 — holding"}[state];
  $("status").style.color=COLORS[state]}
 async function startListening(){
@@ -332,7 +341,7 @@ async function startListening(){
   const k=classify(db,speech);observe(db,k);step(k);
   $("dbLine").textContent=`Room level ${db.toFixed(0)} dB`};
  listening=true;busy($("startBtn"),false,"■ Stop");$("startBtn").style.background="#d93025";
- $("status").textContent="Listening";$("status").style.color=COLORS.QUIET}
+ $("status").textContent="Listening";$("status").style.color=COLORS.QUIET;syncLottie()}
 function stopListening(){
  if(stream)stream.getTracks().forEach(t=>t.stop());
  if(audioCtx)audioCtx.close();stream=audioCtx=null;listening=false;state="QUIET";inSpeech=false;
@@ -340,27 +349,13 @@ function stopListening(){
  busy($("startBtn"),false,"▶ Start");$("startBtn").style.background="";
  $("status").textContent="Ready";$("status").style.color="";$("dbLine").innerHTML="&nbsp;"}
 $("startBtn").onclick=()=>listening?stopListening():startListening();
-// ---- per-source rules (like the Android app's Settings) ----
-const SOURCES=[["device","💻 This device"],["bt","🎧 Bluetooth"],["cast","📡 Cast"],["tv","📺 SoNex TV"]];
-const RULES=["Duck","Mute","Pause","Boost"];
-const cap=s=>s[0].toUpperCase()+s.slice(1);
-function ruleOf(id){return localStorage.getItem("sonex_rule_"+id)||"Duck"}
-function renderRules(){
- $("rules").innerHTML=SOURCES.map(([id,label])=>`<p style="margin-top:10px"><b>${label}</b><br>`+
-  RULES.map(r=>`<span class="chip ${ruleOf(id)===r?"on":""}" data-src="${id}" data-rule="${r}">${r}</span>`).join("")+"</p>").join("");
- document.querySelectorAll("#rules .chip").forEach(c=>c.onclick=()=>{
-  localStorage.setItem("sonex_rule_"+c.dataset.src,c.dataset.rule);renderRules();syncRuleLabels()});
- syncRuleLabels()}
-function syncRuleLabels(){$("rDevice").textContent=ruleOf("device");$("rBt").textContent=ruleOf("bt");
- $("rCast").textContent=ruleOf("cast");$("rTv").textContent=ruleOf("tv")}
-renderRules();
 // ---- settings ----
-$("duck").oninput=()=>{$("duckVal").textContent=$("duck").value;localStorage.setItem("sonex_duck",$("duck").value)};
+$("duck").oninput=()=>{$("duckVal").textContent=$("duck").value;localStorage.setItem("sonex_duck",$("duck").value);pushSettings({duck:+$("duck").value})};
 $("duck").value=localStorage.getItem("sonex_duck")||30;$("duckVal").textContent=$("duck").value;
 const SENS={SMALL:.42,BEDROOM:.50,LIVING:.53,HALL:.66,OPEN:.79};
 document.querySelectorAll("[data-r]").forEach(c=>c.onclick=()=>{
  document.querySelectorAll("[data-r]").forEach(x=>x.classList.remove("on"));c.classList.add("on");
- const s=SENS[c.dataset.r];cal.trigger=-35+(-25 - -35)*(1-s)});
+ const s=SENS[c.dataset.r];cal.trigger=-35+(-25 - -35)*(1-s);pushSettings({room:c.dataset.r})});
 // ---- orb ----
 const cv=$("orb"),cx=cv.getContext("2d");let sweep=0;
 function draw(){
@@ -381,7 +376,6 @@ function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;
  clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,2600)}
 // ---- calibration: 3 mic steps, median dB (same math as the app) ----
 $("calBtn").onclick=()=>{show("calibrate");calStep=0;calUi()};
-$("calBack").onclick=()=>show("home");
 let calStep=0,anchors=[0,0,0];
 const CAL_STEPS=[["Step 1 of 3 · Silence","Stay quiet. TV off.",4],
  ["Step 2 of 3 · TV only","Play the TV normally. Don't talk.",5],
@@ -469,7 +463,7 @@ async function deviceKey(){
  let k=localStorage.getItem("sonex_devkey");if(k)return k;
  const {ok,d}=await api("/v1/devices/register",{device_name:"SoNex Web",home_name:"My Home"});
  if(ok){localStorage.setItem("sonex_devkey",d.api_key);return d.api_key}return null}
-[["cDevice","store_on_server",true],["cTele","telemetry",false],["cTrain","training",false]].forEach(([id,purpose,invert])=>{
+[["cTele","telemetry",false],["cTrain","training",false]].forEach(([id,purpose,invert])=>{
  const el=$(id);el.checked=localStorage.getItem("sonex_c_"+id)==="1"||(el.checked&&localStorage.getItem("sonex_c_"+id)===null);
  el.onchange=async()=>{
   localStorage.setItem("sonex_c_"+id,el.checked?"1":"0");
@@ -478,7 +472,8 @@ async function deviceKey(){
   const granted=invert?!el.checked:el.checked;
   const r=await fetch("/v1/consents",{method:"PUT",headers:{"Content-Type":"application/json","X-Device-Key":k},
    body:JSON.stringify({purpose,granted})});
-  toast(r.ok?`Saved ✓ (${el.checked?"ON":"OFF"})`:"Saved on device — will sync later")}});
+  toast(r.ok?`Saved ✓ (${el.checked?"ON":"OFF"})`:"Saved — will sync later");
+  pushSettings({[purpose]:el.checked})}});
 // ---- TV pairing over the cloud relay ----
 function syncTvUi(){const p=localStorage.getItem("sonex_tv")==="1";
  $("tvSt").textContent=p?("Paired · "+(localStorage.getItem("sonex_tv_name")||"TV")):"Not paired";
@@ -494,8 +489,28 @@ $("tvPairDo").onclick=async()=>{
  let d={};try{d=await r.json()}catch(_){}
  busy($("tvPairDo"),false,"Connect");
  if(r.ok){localStorage.setItem("sonex_tv","1");localStorage.setItem("sonex_tv_name",d.tv_name||"TV");
-  $("tvModal").style.display="none";syncTvUi();toast("Paired with "+(d.tv_name||"your TV")+" ✓")}
+  $("tvModal").style.display="none";syncTvUi();toast("Paired with "+(d.tv_name||"your TV")+" ✓");
+  pushSettings({tv_name:d.tv_name||"TV"})}
  else $("tvErr").textContent=d.detail||"Couldn't pair"};
 syncTvUi();
+// ---- realtime sync with the phone app (same login => same settings) ----
+async function pushSettings(patch){
+ if(!token)return;
+ fetch("/v1/settings",{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+  body:JSON.stringify(patch)}).catch(()=>{})}
+function applySettings(st){
+ if(!st)return;
+ if(st.duck!=null&&String(st.duck)!==$("duck").value){$("duck").value=st.duck;$("duckVal").textContent=st.duck}
+ if(st.room){document.querySelectorAll("[data-r]").forEach(x=>x.classList.toggle("on",x.dataset.r===st.room));
+  const s2=SENS[st.room];if(s2)cal.trigger=-35+10*(1-s2)}
+ if(st.telemetry!=null)$("cTele").checked=!!st.telemetry;
+ if(st.training!=null)$("cTrain").checked=!!st.training;
+ if(st.tv_name){localStorage.setItem("sonex_tv","1");localStorage.setItem("sonex_tv_name",st.tv_name);syncTvUi()}}
+async function pullSettings(){
+ if(!token)return;
+ try{const r=await fetch("/v1/settings",{headers:{Authorization:"Bearer "+token}});
+  if(r.status===401){localStorage.removeItem("sonex_token");token=null;render("auth");return}
+  if(r.ok)applySettings(await r.json())}catch(_){}}
+pullSettings();setInterval(pullSettings,5000);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");
 </script></body></html>

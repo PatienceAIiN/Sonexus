@@ -2,7 +2,9 @@ package com.sonex.mobile.data
 
 import android.content.Context
 import android.os.Build
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -106,6 +108,56 @@ object ServerSync {
                 if (code in 200..299) Status.Ok("Feedback sent — thank you! ✓")
                 else Status.Failed(friendlyHttp(code))
             } catch (t: Throwable) { Status.Failed(friendlyNetwork(t)) }
+        }
+    }
+
+    /** Push a settings patch to the account — web picks it up within seconds. */
+    fun pushSettings(c: Context, patch: Map<String, Any?>) {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        val tok = Prefs.authToken(c) ?: return
+        if (base.isBlank()) return
+        val body = patch.entries.joinToString(",", "{", "}") { (k, v) ->
+            "\"$k\":" + when (v) {
+                is Number, is Boolean -> v.toString()
+                else -> "\"$v\""
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val (_, _) = http("$base/v1/settings", "PUT", body,
+                    mapOf("Authorization" to "Bearer $tok"))
+            }
+        }
+    }
+
+    /** Pull account settings (login/app-start) and apply to local prefs. */
+    suspend fun pullSettings(c: Context) {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        val tok = Prefs.authToken(c) ?: return
+        if (base.isBlank()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = java.net.URL("$base/v1/settings").openConnection() as HttpURLConnection
+                conn.connectTimeout = 8000; conn.readTimeout = 8000
+                conn.setRequestProperty("Authorization", "Bearer $tok")
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.use { it.readBytes().decodeToString() }
+                    val obj = json.parseToJsonElement(body) as? kotlinx.serialization.json.JsonObject ?: return@runCatching
+                    (obj["duck"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
+                        ?.let { Prefs.setDuckLevel(c, it) }
+                    (obj["room"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.let { r ->
+                        runCatching { com.sonex.core.RoomProfile.Preset.valueOf(r) }.getOrNull()
+                            ?.let { Prefs.setRoomPreset(c, it) }
+                    }
+                    (obj["theme"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        ?.let { Prefs.setThemeMode(c, it) }
+                    (obj["telemetry"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        ?.let { Prefs.setConsent(c, "c_telemetry", it == "true") }
+                    (obj["training"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        ?.let { Prefs.setConsent(c, "c_training", it == "true") }
+                }
+                conn.disconnect()
+            }
         }
     }
 

@@ -111,6 +111,9 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Cross-device settings blob (duck level, room, consents…) — the phone and
+    # SoNex Web read/write this so one login stays in sync everywhere.
+    settings: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Bumped on password reset; tokens carry it, so old sessions die instantly.
     token_version: Mapped[int] = mapped_column(Integer, default=0)
 

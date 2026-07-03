@@ -134,3 +134,19 @@ async def run_training(body: TrainingRunIn, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Unknown home")
     job_id = await enqueue_job(get_redis(), "train_home", home_id=body.home_id)
     return {"job_id": job_id}
+
+
+@router.get("/settings")
+async def get_settings(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Cross-device settings: whatever the phone or web saved last."""
+    return user.settings or {}
+
+
+@router.put("/settings")
+async def put_settings(patch: dict, user: User = Depends(get_current_user),
+                       db: AsyncSession = Depends(get_db)):
+    merged = dict(user.settings or {})
+    merged.update(patch or {})
+    user.settings = merged
+    await db.commit()
+    return merged

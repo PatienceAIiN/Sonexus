@@ -60,6 +60,8 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         Prefs.setAuthToken(ctx, token)
         Prefs.setAccountEmail(ctx, email)
         Prefs.setLoggedIn(ctx, true)
+        // Same login on web + phone => same settings, instantly.
+        scope.launch { com.sonex.mobile.data.ServerSync.pullSettings(ctx) }
         onLoggedIn()
     }
 

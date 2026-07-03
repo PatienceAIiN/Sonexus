@@ -165,6 +165,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
         buzz()
         Prefs.setConsent(ctx, prefKey, value)
         scope.launch { toast(ServerSync.syncConsent(ctx, prefKey, value).message) }
+        ServerSync.PURPOSES[prefKey]?.let { ServerSync.pushSettings(ctx, mapOf(it to value)) }
     }
 
     var duck by remember { mutableStateOf(Prefs.duckLevel(ctx).toFloat()) }
@@ -190,7 +191,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             Text("Duck to ${duck.toInt()}% when someone talks")
             Slider(
                 duck,
-                { if (it.toInt() != duck.toInt()) buzz(); duck = it; Prefs.setDuckLevel(ctx, it.toInt()) },
+                { if (it.toInt() != duck.toInt()) buzz(); duck = it; Prefs.setDuckLevel(ctx, it.toInt()); ServerSync.pushSettings(ctx, mapOf("duck" to it.toInt())) },
                 valueRange = 10f..80f
             )
 
@@ -216,6 +217,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                                 restoreDelaySec = preset.restoreDelaySec
                             ))
                             toast("${preset.label} ✓ sensitivity ${(preset.sensitivity * 100).toInt()}%")
+                            ServerSync.pushSettings(ctx, mapOf("room" to preset.name))
                         },
                         label = { Text(preset.label) }
                     )
@@ -227,7 +229,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
                     FilterChip(
                         selected = theme == mode,
-                        onClick = { buzz(); theme = mode; Prefs.setThemeMode(ctx, mode); toast("Theme: $label ✓") },
+                        onClick = { buzz(); theme = mode; Prefs.setThemeMode(ctx, mode); toast("Theme: $label ✓"); ServerSync.pushSettings(ctx, mapOf("theme" to mode)) },
                         label = { Text(label) },
                         leadingIcon = {
                             Icon(

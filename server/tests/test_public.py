@@ -115,9 +115,10 @@ async def test_sonex_web_pwa_served(client):
     assert "Log out?" in page.text and 'class="eye"' in page.text
     # Full app parity surface
     for feature in ["Calibrate", "Forgot password", "Change password", "Send feedback",
-                    "Delete my data", "Room size", "each source", "serviceWorker",
+                    "Delete my data", "Room size", "serviceWorker", "dotlottie",
                     "getUserMedia", "WHISPER", "v1/auth/verify", "v1/auth/reset",
-                    "v1/feedback", "v1/data/delete", "v1/consents", "v1/devices/register", "v1/tv/pair", "v1/tv/command", "Pair your TV"]:
+                    "v1/feedback", "v1/data/delete", "v1/consents", "v1/devices/register",
+                    "v1/tv/pair", "v1/tv/command", "Pair your TV", "v1/settings", "pullSettings"]:
         assert feature in page.text, f"web app missing: {feature}"
     assert (await client.get("/app/manifest.webmanifest")).status_code == 200
     assert (await client.get("/app/sw.js")).status_code == 200
@@ -142,3 +143,16 @@ async def test_tv_cloud_relay_pair_and_command(client, db):
     cmds = (await client.get("/v1/tv/poll", headers=hdr)).json()["commands"]
     assert cmds == [{"action": "DUCK", "level": 30, "reason": "web"}]
     assert (await client.get("/v1/tv/poll", headers=hdr)).json()["commands"] == []
+
+
+async def test_cross_device_settings_sync(client, db):
+    from .conftest import login
+    auth = await login(client, db, "sync@sonex.test", "longenough8")
+    assert (await client.get("/v1/settings", headers=auth)).json() == {}
+    r = await client.put("/v1/settings", json={"duck": 40, "room": "HALL"}, headers=auth)
+    assert r.status_code == 200
+    # merge, not replace
+    await client.put("/v1/settings", json={"theme": "dark"}, headers=auth)
+    got = (await client.get("/v1/settings", headers=auth)).json()
+    assert got == {"duck": 40, "room": "HALL", "theme": "dark"}
+    assert (await client.get("/v1/settings")).status_code == 401
