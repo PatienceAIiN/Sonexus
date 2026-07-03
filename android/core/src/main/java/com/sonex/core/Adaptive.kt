@@ -190,3 +190,27 @@ object VolumeRamp {
         return (1..n).map { from + (to - from) * it / n }
     }
 }
+
+
+/**
+ * Distinguishes talking from machinery: speech pulses with syllables (the
+ * level swings several dB within a second) while coolers, fans and motors sit
+ * at a near-constant level. Rolling p90-p10 swing over ~1s of frames.
+ */
+class ModulationTracker(private val window: Int = 34) {
+    private val ring = ArrayDeque<Double>()
+
+    /** Feed a frame level; returns the current swing (dB). Big while warming up. */
+    fun update(db: Double): Double {
+        ring.addLast(db)
+        if (ring.size > window) ring.removeFirst()
+        if (ring.size < window / 2) return 99.0 // not enough data: don't reclassify yet
+        val sorted = ring.sorted()
+        return sorted[(sorted.size * 9) / 10 - 1] - sorted[sorted.size / 10]
+    }
+
+    companion object {
+        /** Below this swing a "speech-shaped" sound is machinery, not a person. */
+        const val STEADY_SWING_DB = 4.0
+    }
+}

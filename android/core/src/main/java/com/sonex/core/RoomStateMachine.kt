@@ -83,15 +83,21 @@ class RoomStateMachine(
             boostTrigger: Double,
             inSpeechState: Boolean = false,
             hysteresisDb: Double = 3.0,
-            noiseFloorDb: Double? = null
+            noiseFloorDb: Double? = null,
+            /** p90-p10 level swing over ~1s: speech pulses, machinery doesn't. */
+            dbSwingDb: Double = 99.0
         ): FrameKind {
             val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
+            // A cooler/fan/motor can mimic speech's zero-crossing band, but it
+            // holds a near-constant level. Steady => interference noise:
+            // BOOST over it, never duck for it.
+            val steady = dbSwingDb < ModulationTracker.STEADY_SWING_DB
+            val talksLikeAPerson = speechShaped && !steady
             return when {
-                db > effectiveTrigger && speechShaped -> FrameKind.SPEECH
-                db > boostTrigger && !speechShaped -> FrameKind.NOISE
-                // Whisper band: speech-shaped but soft — someone lowered their
-                // voice because they're already disturbed. Never duck for it.
-                speechShaped && noiseFloorDb != null &&
+                db > effectiveTrigger && talksLikeAPerson -> FrameKind.SPEECH
+                db > boostTrigger && (!speechShaped || steady) -> FrameKind.NOISE
+                // Whisper band: genuinely person-shaped but soft — hold volume.
+                talksLikeAPerson && noiseFloorDb != null &&
                     db > noiseFloorDb + WHISPER_MARGIN_DB && db <= effectiveTrigger ->
                     FrameKind.WHISPER
                 else -> FrameKind.QUIET

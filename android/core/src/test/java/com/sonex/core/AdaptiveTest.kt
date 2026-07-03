@@ -239,3 +239,41 @@ class PercentileTest {
         org.junit.Assert.assertFalse(CalibrationQuality.isUnsteady(6.0))
     }
 }
+
+class MachineNoiseTest {
+    @org.junit.Test fun steady_machine_noise_boosts_instead_of_ducking() {
+        val m = ModulationTracker()
+        // Cooler: loud, speech-band ZCR, but dead-steady level.
+        var sw = 99.0
+        repeat(40) { sw = m.update(-22.0 + (it % 2) * 0.4 ) }
+        org.junit.Assert.assertTrue(sw < ModulationTracker.STEADY_SWING_DB)
+        org.junit.Assert.assertEquals("steady 'speech-shaped' loudness is interference => BOOST",
+            FrameKind.NOISE,
+            RoomStateMachine.classify(-22.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = sw))
+    }
+
+    @org.junit.Test fun real_speech_still_ducks_because_it_pulses() {
+        val m = ModulationTracker()
+        var sw = 99.0
+        // Syllables: level swings between -22 and -38 dB.
+        repeat(40) { sw = m.update(if (it % 6 < 3) -22.0 else -38.0) }
+        org.junit.Assert.assertTrue(sw >= ModulationTracker.STEADY_SWING_DB)
+        org.junit.Assert.assertEquals(FrameKind.SPEECH,
+            RoomStateMachine.classify(-22.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = sw))
+    }
+
+    @org.junit.Test fun steady_soft_hum_is_quiet_not_whisper() {
+        org.junit.Assert.assertEquals("a soft steady hum must not hold the volume hostage",
+            FrameKind.QUIET,
+            RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 1.5))
+    }
+
+    @org.junit.Test fun whispering_still_holds_never_boosts() {
+        // Whisper: soft AND modulated => WHISPER (hold), and RulePolicy sends nothing.
+        val k = RoomStateMachine.classify(-40.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 9.0)
+        org.junit.Assert.assertEquals(FrameKind.WHISPER, k)
+        TargetRule.entries.forEach {
+            org.junit.Assert.assertNull(RulePolicy.commandFor(RoomState.WHISPER, it, 30, 100))
+        }
+    }
+}

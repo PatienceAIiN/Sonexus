@@ -26,6 +26,7 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
         ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
     )
     private var lastKind = FrameKind.QUIET
+    private val modulation = com.sonex.core.ModulationTracker()
 
     override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
         val kind = RoomStateMachine.classify(
@@ -34,7 +35,8 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
             trigger = adapter.trigger,
             boostTrigger = adapter.boostTrigger,
             inSpeechState = lastKind == FrameKind.SPEECH,
-            noiseFloorDb = noiseFloor + adapter.shiftDb
+            noiseFloorDb = noiseFloor + adapter.shiftDb,
+            dbSwingDb = modulation.update(db)
         )
         adapter.observe(db, kind)
         lastKind = kind

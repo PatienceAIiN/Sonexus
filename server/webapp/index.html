@@ -287,11 +287,16 @@ const COLORS={QUIET:"#0d9488",TALKING:"#FF5C7A",BOOST:"#FFB020",WHISPER:"#7C4DFF
 let listening=false,audioCtx=null,stream=null,state="QUIET",db=-60,inSpeech=false;
 let talkS=0,quietS=0,boostS=0,whisS=0;const TALK_ON=34,QUIET_OFF=200;
 const cal={floor:-55,trigger:-30,boost:-27,shift:0};
+const ring=[];function swing(db){ring.push(db);if(ring.length>34)ring.shift();
+ if(ring.length<17)return 99;const s2=[...ring].sort((a,b)=>a-b);
+ return s2[Math.floor(s2.length*0.9)-1]-s2[Math.floor(s2.length*0.1)]}
 function classify(db,speechShaped){
  const trig=cal.trigger+cal.shift-(inSpeech?3:0); // enter high, exit low
- if(db>trig&&speechShaped)return"SPEECH";
- if(db>cal.boost+cal.shift&&!speechShaped)return"NOISE";
- if(speechShaped&&db>cal.floor+cal.shift+6&&db<=trig)return"WHISPER";
+ // Steady level = machinery (cooler/fan), even if it mimics speech: BOOST, never duck.
+ const steady=swing(db)<4, person=speechShaped&&!steady;
+ if(db>trig&&person)return"SPEECH";
+ if(db>cal.boost+cal.shift&&(!speechShaped||steady))return"NOISE";
+ if(person&&db>cal.floor+cal.shift+6&&db<=trig)return"WHISPER";
  return"QUIET"}
 function observe(db,k){ // adaptive floor, capped so a silent night can't oversensitise
  if(k!=="QUIET"||db>cal.floor+12)return;
