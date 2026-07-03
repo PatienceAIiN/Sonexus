@@ -351,6 +351,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("3.1", "Whispering is recognised properly now - even a loud whisper close to the mic no longer shows as talking. SoNex Web detects your earbuds and headphones the instant you connect them (no refresh needed) and shows exactly which mic and speaker are in use. You can now set what each device does when someone talks - lower, mute, pause or boost - right from the web app, and your choices sync instantly across your phone, TV and web. The admin panel now shows every dataset and piece of data used to improve SoNex, with a live training feed."),
     ("3.0", "SoNex now starts on its own the moment your phone joins the same Wi-Fi as your paired TV - no tapping Start. Whisper detection is far more reliable (soft breathy voices are caught properly now), and when several people are whispering together SoNex shows 'Whispering' and eases the volume down a touch instead of holding it. On SoNex Web you can now pick which microphone and speaker to use - listen through your earbuds or headphones - and the Bluetooth status finally tells you the truth about what's connected."),
     ("2.9", "Coolers, fans and machines no longer trick SoNex into lowering your sound - steady outside noise now raises the volume to cut through it, while real talking still lowers it and whispering still holds it."),
     ("2.8", "Fully hands-free: SoNex now manages every device automatically - the manual mute buttons are gone, because you should never need them."),

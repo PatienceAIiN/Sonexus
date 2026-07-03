@@ -106,15 +106,21 @@ class RoomStateMachine(
             // BOOST over it, never duck for it.
             val steady = dbSwingDb < ModulationTracker.STEADY_SWING_DB
             val talksLikeAPerson = speechShaped && !steady
+            // A clearly UNVOICED sound (breathy, high zero-crossing, not steady
+            // machinery) is a whisper even when it's loud — this is what stops
+            // "I whispered but it showed Talking". It never becomes SPEECH.
+            val unvoicedBreath = whisperShaped && !speechShaped && !steady
             return when {
                 db > effectiveTrigger && talksLikeAPerson -> FrameKind.SPEECH
-                db > boostTrigger && (!speechShaped || steady) -> FrameKind.NOISE
-                // Whisper band: breathy-shaped, soft, and at least slightly
-                // modulated (a flat hum isn't a person). The louder upper part
-                // of the band is several people whispering, not one.
+                // Machine noise only — a breathy whisper must NOT be boosted as noise.
+                db > boostTrigger && ((!speechShaped && !whisperShaped) || steady) -> FrameKind.NOISE
+                // Whisper band: breathy-shaped + slightly modulated (a flat hum
+                // isn't a person). Soft whispers sit below the trigger; a loud
+                // *unvoiced* whisper is allowed above it too. The louder it is,
+                // the more it's several people => group whisper (gentle duck).
                 whisperShaped && dbSwingDb >= ModulationTracker.MIN_WHISPER_SWING_DB &&
-                    noiseFloorDb != null &&
-                    db > noiseFloorDb + WHISPER_MARGIN_DB && db <= effectiveTrigger ->
+                    noiseFloorDb != null && db > noiseFloorDb + WHISPER_MARGIN_DB &&
+                    (db <= effectiveTrigger || unvoicedBreath) ->
                     if (db >= noiseFloorDb + WHISPER_MARGIN_DB + WHISPER_GROUP_GAP_DB)
                         FrameKind.WHISPER_GROUP else FrameKind.WHISPER
                 else -> FrameKind.QUIET

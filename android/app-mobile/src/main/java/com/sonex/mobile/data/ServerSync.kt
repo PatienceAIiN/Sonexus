@@ -130,6 +130,25 @@ object ServerSync {
         }
     }
 
+    /** Per-device rules (duck/mute/pause/boost). Sent as one nested object so
+     *  the whole set stays consistent across the phone, TV and web app. */
+    val RULE_IDS = listOf("tv", "bt", "wired", "cast")
+
+    fun pushRules(c: Context) {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        val tok = Prefs.authToken(c) ?: return
+        if (base.isBlank()) return
+        val rules = RULE_IDS.joinToString(",", "{", "}") { id ->
+            "\"$id\":\"${Prefs.targetRule(c, id).name}\""
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                http("$base/v1/settings", "PUT", "{\"rules\":$rules}",
+                    mapOf("Authorization" to "Bearer $tok"))
+            }
+        }
+    }
+
     /** Pull account settings (login/app-start) and apply to local prefs. */
     suspend fun pullSettings(c: Context) {
         val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
@@ -155,6 +174,14 @@ object ServerSync {
                         ?.let { Prefs.setConsent(c, "c_telemetry", it == "true") }
                     (obj["training"] as? kotlinx.serialization.json.JsonPrimitive)?.content
                         ?.let { Prefs.setConsent(c, "c_training", it == "true") }
+                    (obj["rules"] as? kotlinx.serialization.json.JsonObject)?.let { rules ->
+                        for (id in RULE_IDS) {
+                            (rules[id] as? kotlinx.serialization.json.JsonPrimitive)?.content?.let { r ->
+                                runCatching { com.sonex.core.TargetRule.valueOf(r) }.getOrNull()
+                                    ?.let { Prefs.setTargetRule(c, id, it) }
+                            }
+                        }
+                    }
                 }
                 conn.disconnect()
             }

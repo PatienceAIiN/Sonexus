@@ -265,11 +265,26 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             ConsentRow("Let SoNex learn my home", training) { training = it; syncedConsent("c_training", it) }
 
             SectionHeader(Icons.Filled.Speaker, "Devices")
+            var autoStart by remember { mutableStateOf(Prefs.autoStartOnWifi(ctx)) }
+            ConsentRow("Auto-start on my TV's Wi-Fi", autoStart) {
+                autoStart = it
+                Prefs.setAutoStartOnWifi(ctx, it)
+                if (it) Prefs.setAutoStartSuppressed(ctx, false)
+                toast(if (it) "SoNex will start on its own near your TV ✓" else "Auto-start off")
+            }
+            Text(
+                "When your phone joins the same Wi-Fi as your paired TV, SoNex starts listening automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
             listOf(
                 "tv" to "SoNex TV", "bt" to "Bluetooth",
                 "wired" to "Earphones", "cast" to "Cast"
             ).forEach { (id, label) ->
-                TargetRuleRow(label, Prefs.targetRule(ctx, id)) { buzz(); Prefs.setTargetRule(ctx, id, it) }
+                TargetRuleRow(label, Prefs.targetRule(ctx, id)) {
+                    buzz(); Prefs.setTargetRule(ctx, id, it); ServerSync.pushRules(ctx)
+                }
             }
 
             SectionHeader(Icons.Filled.SystemUpdate, "App")

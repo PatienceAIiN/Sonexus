@@ -172,6 +172,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         netCb = com.sonex.mobile.network.AutoStart.register(this)
         com.sonex.mobile.network.AutoStart.maybeStart(this)
+        // Pull the latest cross-device settings (rules/duck/room/theme) on focus.
+        if (Prefs.isLoggedIn(this)) kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+            .launch { com.sonex.mobile.data.ServerSync.pullSettings(this@MainActivity) }
     }
 
     override fun onPause() {

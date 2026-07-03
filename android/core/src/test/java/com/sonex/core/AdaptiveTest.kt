@@ -315,4 +315,20 @@ class GroupWhisperTest {
             RoomStateMachine.classify(-46.0, speechShaped = false, trigger = -30.0, boostTrigger = -27.0,
                 noiseFloorDb = -55.0, dbSwingDb = 6.0, whisperShaped = true))
     }
+
+    @org.junit.Test fun loud_unvoiced_whisper_never_shows_as_talking() {
+        // The bug: a whisper close to the mic sat above the trigger and read as
+        // TALKING. Unvoiced breath (speechShaped=false, whisperShaped=true) above
+        // the trigger must be a whisper (group, since it's loud) — never SPEECH.
+        val k = RoomStateMachine.classify(-24.0, speechShaped = false, trigger = -30.0, boostTrigger = -27.0,
+            noiseFloorDb = -55.0, dbSwingDb = 6.0, whisperShaped = true)
+        org.junit.Assert.assertEquals(FrameKind.WHISPER_GROUP, k)
+    }
+
+    @org.junit.Test fun loud_unvoiced_breath_is_not_boosted_as_machine_noise() {
+        // Above the boost trigger but breathy => whisper, not NOISE (no boost).
+        val k = RoomStateMachine.classify(-25.0, speechShaped = false, trigger = -30.0, boostTrigger = -27.0,
+            noiseFloorDb = -55.0, dbSwingDb = 7.0, whisperShaped = true)
+        org.junit.Assert.assertNotEquals(FrameKind.NOISE, k)
+    }
 }

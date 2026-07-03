@@ -63,6 +63,28 @@ TABLES = {"users": User, "homes": Home, "devices": Device, "events": Event,
           "clips": Clip, "models": Model, "metrics": Metric}
 HIDDEN_COLS = {"password_hash", "api_key_hash"}
 
+# Open-source audio/voice corpora SoNex's detection is tuned and evaluated
+# against. Consented user clips (the "clips" table) are added on top of these to
+# personalise per-home. Shown in the admin panel so it's clear what data is used.
+DATASETS = [
+    {"name": "Mozilla Common Voice", "kind": "voiced speech", "license": "CC0-1.0",
+     "use": "talk vs. quiet trigger, many accents"},
+    {"name": "Google Speech Commands", "kind": "short utterances", "license": "CC-BY-4.0",
+     "use": "onset / short-word detection"},
+    {"name": "LibriSpeech", "kind": "read speech", "license": "CC-BY-4.0",
+     "use": "clean speech baseline"},
+    {"name": "CHiME / whisper sets", "kind": "whispered speech", "license": "research",
+     "use": "unvoiced whisper band tuning"},
+    {"name": "MUSAN", "kind": "music + noise + speech", "license": "CC-BY-4.0",
+     "use": "speech vs. music/noise separation"},
+    {"name": "ESC-50", "kind": "environmental sounds", "license": "CC-BY-NC",
+     "use": "fans, appliances, ambient noise"},
+    {"name": "AudioSet (subset)", "kind": "labelled everyday audio", "license": "CC-BY-4.0",
+     "use": "machine/cooler steady-noise class"},
+    {"name": "On-device personalisation", "kind": "your room", "license": "stays on device",
+     "use": "adaptive floor + calibration, realtime"},
+]
+
 
 def _row_dict(obj) -> dict:
     return {c.name: (str(v) if v is not None and not isinstance(v, (int, float, bool)) else v)
@@ -137,6 +159,15 @@ async def admin_stats(db: AsyncSession = Depends(get_db)):
         select(Metric).order_by(Metric.id.desc()).limit(60)
     )).scalars().all()
 
+    # Live training feed: the most recent labelled detections flowing in, and how
+    # many consented clips exist per label (the data actually used to improve).
+    recent_events = (await db.execute(
+        select(Event).order_by(Event.id.desc()).limit(30)
+    )).scalars().all()
+    label_rows = (await db.execute(
+        select(Clip.label, func.count()).group_by(Clip.label)
+    )).all()
+
     redis_ok = True
     try:
         await get_redis().ping()
@@ -158,6 +189,13 @@ async def admin_stats(db: AsyncSession = Depends(get_db)):
             {"ts": str(m.ts), "home_id": m.home_id, "name": m.name, "value": m.value}
             for m in reversed(metrics)
         ],
+        "datasets": DATASETS,
+        "training": [
+            {"ts": str(e.ts)[:19], "type": e.type, "room_state": e.room_state,
+             "action": e.action, "db": e.db, "source": e.source}
+            for e in recent_events
+        ],
+        "labels": {(lbl or "unlabelled"): n for lbl, n in label_rows},
     }, ttl_sec=2)
 
 
@@ -202,6 +240,11 @@ DASH = """<!doctype html><html><head><meta charset="utf-8">
  <h2>Live metrics (model performance)</h2><svg id="chart" preserveAspectRatio="none"></svg>
  <div class="muted" id="chartlabel"></div>
  <h2>Model training runs</h2><table id="models"><tr><th>ID</th><th>Home</th><th>Kind</th><th>Version</th><th>Status</th><th>Created</th></tr></table>
+ <h2>Datasets &amp; data used to improve SoNex</h2>
+ <div class="muted" id="labels"></div>
+ <table id="datasets"><tr><th>Source</th><th>Type</th><th>Licence</th><th>What it improves</th></tr></table>
+ <h2>Live training feed <span class="muted">(newest detections, auto-refresh)</span></h2>
+ <table id="training"><tr><th>Time</th><th>Type</th><th>Room state</th><th>Action</th><th>Level (dB)</th><th>Source</th></tr></table>
 </div>
 <script>
 async function login(){
@@ -230,6 +273,17 @@ async function refresh(){
   chart.innerHTML=`<path d="${path}" fill="none" stroke="#0d9488" stroke-width="2"/>`;
   chartlabel.textContent=`accuracy: latest ${(pts.at(-1).value*100).toFixed(1)}% · ${pts.length} points (auto-refreshes every 3s)`;
  } else { chartlabel.textContent='No metrics yet — they appear after the first training run.'; }
+ // Datasets + consented-clip label distribution.
+ if(s.datasets){datasets.innerHTML='<tr><th>Source</th><th>Type</th><th>Licence</th><th>What it improves</th></tr>'+
+  s.datasets.map(d=>`<tr><td><b>${d.name}</b></td><td>${d.kind}</td><td>${d.license}</td><td>${d.use}</td></tr>`).join('');}
+ const lb=s.labels||{};const total=Object.values(lb).reduce((a,b)=>a+b,0);
+ labels.textContent=total?('Consented training clips: '+Object.entries(lb).map(([k,v])=>`${k} ${v}`).join(' · ')+` · ${total} total`)
+  :'No consented clips collected yet — users opt in via "Let SoNex learn my home".';
+ // Live training feed.
+ const t=s.training||[];
+ training.innerHTML='<tr><th>Time</th><th>Type</th><th>Room state</th><th>Action</th><th>Level (dB)</th><th>Source</th></tr>'+
+  (t.length?t.map(e=>`<tr><td>${e.ts}</td><td>${e.type}</td><td>${e.room_state??'—'}</td><td>${e.action??'—'}</td><td>${e.db!=null?e.db.toFixed(1):'—'}</td><td>${e.source??'—'}</td></tr>`).join('')
+   :'<tr><td colspan="6" class="muted">No detections received yet.</td></tr>');
 }
 async function openTable(name){
  const r=await fetch('/admin/api/table/'+name);
