@@ -99,9 +99,11 @@ fun HomeScreen(
                     "https://lottie.host/3bb755f7-57d6-4860-97ac-15150ea0021c/CdE2dpfrUc.lottie"
                 )
             )
+            // Always bouncing — grey while stopped, activity-coloured while
+            // listening (matches SoNex Web).
             val lottieProgress by com.airbnb.lottie.compose.animateLottieCompositionAsState(
                 composition,
-                isPlaying = listening,
+                isPlaying = true,
                 iterations = com.airbnb.lottie.compose.LottieConstants.IterateForever,
                 speed = 3f
             )
@@ -109,7 +111,8 @@ fun HomeScreen(
                 com.airbnb.lottie.compose.rememberLottieDynamicProperty(
                     com.airbnb.lottie.LottieProperty.COLOR_FILTER,
                     android.graphics.PorterDuffColorFilter(
-                        orbColor.toArgb(), android.graphics.PorterDuff.Mode.SRC_ATOP
+                        (if (listening) orbColor else Color(0xFF9AA0A6)).toArgb(),
+                        android.graphics.PorterDuff.Mode.SRC_ATOP
                     ),
                     "**"
                 )
