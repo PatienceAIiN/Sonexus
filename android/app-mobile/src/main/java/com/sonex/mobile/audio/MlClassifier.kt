@@ -33,6 +33,9 @@ class MlClassifier(
         private const val YAMNET_EVERY_FRAMES = 16      // run YAMNet ~every 0.5s
         /** AudioSet classes 0..24 are the human-voice group (speech, shout, etc.). */
         private const val LAST_SPEECH_CLASS = 24
+        /** Tiny margin over ambient so Silero's near-silence jitter isn't "voice".
+         *  NOT a loudness gate — real speech clears this by a mile. */
+        private const val VOICE_OVER_FLOOR_DB = 6.0
     }
 
     private var broken = false
@@ -82,19 +85,21 @@ class MlClassifier(
         if (broken) return fallback.classify(buf, n, db)
         return try {
             feed(buf, n)
-            val floor = floorTracker.update(db)  // robust ambient, every frame
-            val swing = modulation.update(db)    // level fluctuation over ~1s
-            // Silero decides the HARD part — is this a person speaking? — but a
-            // cooler/fan is STEADY (low swing) and a person PULSES: veto steady
-            // sound from ever being "Talking", so a running cooler can't trip it.
-            val steady = swing < com.sonex.core.ModulationTracker.STEADY_SWING_DB
-            val talkGate = minOf(adapter.trigger, floor + com.sonex.core.RoomStateMachine.TALK_OVER_FLOOR_DB)
-            // Always run the heuristic (keeps its trackers warm and lets it decide
-            // quiet vs machine-boost for everything that isn't confident speech).
-            val heur = fallback.classify(buf, n, db)
-            if (vadSeen && smoother.speaking && !steady && db > talkGate && heur != FrameKind.NOISE)
-                FrameKind.SPEECH
-            else heur
+            fallback.classify(buf, n, db)       // keep heuristic trackers warm
+            val floor = floorTracker.update(db) // robust ambient, every frame
+            val steady = modulation.update(db) < com.sonex.core.ModulationTracker.STEADY_SWING_DB
+            // TYPE-BASED, not level-based:
+            //  - human VOICE (Silero) that PULSES (not a steady machine)  -> SPEECH (duck), any loudness
+            //  - no voice but clearly loud                                -> NOISE  (boost: machine/vehicle)
+            //  - otherwise                                                -> QUIET
+            // Human+machine => voice is present => SPEECH (human wins).
+            val voice = vadSeen && smoother.speaking && !steady && db > floor + VOICE_OVER_FLOOR_DB
+            val loud = db > floor + com.sonex.core.RoomStateMachine.BOOST_OVER_FLOOR_DB
+            when {
+                voice -> FrameKind.SPEECH
+                loud -> FrameKind.NOISE
+                else -> FrameKind.QUIET
+            }
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
             broken = true

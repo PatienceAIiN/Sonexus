@@ -118,11 +118,10 @@ class ListeningService : Service() {
     private fun buildClassifier(cal: Calibration): FrameClassifier {
         val store = ModelStore(this)
         val fallback = HeuristicClassifier(cal)
-        // Deterministic heuristic is the trusted base. The OTA-trained model runs
-        // on top as a PRECISION VETO (it only cancels false "Talking", never
-        // invents speech) so accuracy self-improves without destabilising. Silero
-        // (vad) is intentionally not in the decision — it was false-firing speech
-        // on machine/vehicle noise and blocking the learning loop.
+        // Type-based detection: Silero VAD answers "is this a human voice?" —
+        // independent of loudness — which the ZCR heuristic can't do reliably.
+        val vad = store.verifiedFile("vad")
+        if (vad != null) return MlClassifier(vad, store.verifiedFile("sound"), cal, fallback)
         store.verifiedFile("lite")?.let { return LiteClassifier(it, cal, fallback) }
         return fallback
     }
