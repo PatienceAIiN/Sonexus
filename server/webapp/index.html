@@ -469,7 +469,8 @@ async function startListening(){
 // EXPERIMENTAL, opt-in only (?neural=1 or localStorage sonex_neural=1). Default
 // path is 100% unchanged. Loads open-source Silero VAD in-browser; on ANY failure
 // it silently does nothing and the normal engine keeps running.
-const NEURAL=new URLSearchParams(location.search).get("neural")==="1"||localStorage.getItem("sonex_neural")==="1";
+// Neural VAD ON by default; escape hatch to disable: ?neural=0 or localStorage sonex_neural=0.
+const NEURAL=new URLSearchParams(location.search).get("neural")!=="0"&&localStorage.getItem("sonex_neural")!=="0";
 let neuralVad=null;
 async function startNeuralVad(){ if(neuralVad)return;
  try{const m=await import("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/index.js");
