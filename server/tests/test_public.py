@@ -56,7 +56,7 @@ async def test_seo_favicon_robots_sitemap(client):
     robots = await client.get("/robots.txt")
     assert robots.status_code == 200 and "Sitemap:" in robots.text
     sm = await client.get("/sitemap.xml")
-    assert sm.status_code == 200 and "/privacy" in sm.text
+    assert sm.status_code == 200 and "/privacy" in sm.text and "/changelog" in sm.text
 
 
 async def test_admin_dashboard_gated(client, monkeypatch):
@@ -254,7 +254,7 @@ async def test_changelog_page_and_footer_link(client):
     landing = (await client.get("/")).text
     assert "/changelog" in landing
     page = await client.get("/changelog")
-    assert page.status_code == 200 and "v1.8" in page.text and "SoNex" in page.text
+    assert page.status_code == 200 and "5.0" in page.text and "SoNex" in page.text
 
 
 async def test_sonex_web_pwa_served(client):

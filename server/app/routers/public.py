@@ -692,7 +692,7 @@ async def sitemap(request: Request):
 
     base = _base(request)
     today = date.today().isoformat()
-    pages = [("/", "weekly", "1.0"), ("/terms", "yearly", "0.3"), ("/privacy", "yearly", "0.3")]
+    pages = [("/", "weekly", "1.0"), ("/changelog", "monthly", "0.6"), ("/terms", "yearly", "0.3"), ("/privacy", "yearly", "0.3")]
     urls = "".join(
         f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod>"
         f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
