@@ -693,40 +693,15 @@ body.light-mode .theme-btn:hover {{ background: rgba(0,0,0,0.1); }}
 ::selection {{ background: var(--ink); color: var(--bg); }}
 </style></head>
 <body>
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+<div style="margin-bottom:24px;">
   <a href="/" class="back-link">← Back to SoNex</a>
-  <button id="themeToggle" class="theme-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
-    <span class="theme-icon moon-icon">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-    </span>
-    <span class="theme-icon sun-icon" style="display:none;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-    </span>
-    <span id="themeLabel">Dark</span>
-  </button>
 </div>
 <h1>{title}</h1>{body}
 <p class="footer-logo">A product of <a href="https://patienceai.in">Patience AI</a></p>
 <script>
-function toggleTheme() {{
-  const isLight = document.body.classList.toggle('light-mode');
-  localStorage.setItem('sonex-theme', isLight ? 'light' : 'dark');
-  updateThemeUI(isLight);
-}}
-function updateThemeUI(isLight) {{
-  const moon = document.querySelector('.moon-icon');
-  const sun = document.querySelector('.sun-icon');
-  const label = document.getElementById('themeLabel');
-  if (moon && sun && label) {{
-    moon.style.display = isLight ? 'none' : 'inline-flex';
-    sun.style.display = isLight ? 'inline-flex' : 'none';
-    label.textContent = isLight ? 'Light' : 'Dark';
-  }}
-}}
 (function(){{
   if (localStorage.getItem('sonex-theme') === 'light') {{
     document.body.classList.add('light-mode');
-    updateThemeUI(true);
   }}
 }})();
 </script>
