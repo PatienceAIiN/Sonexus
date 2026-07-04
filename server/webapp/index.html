@@ -464,8 +464,23 @@ async function startListening(){
   step(k);
   $("dbLine").textContent=`Room level: ${Math.max(0,Math.min(100,Math.round(db+100)))}/100`};
  listening=true;busy($("startBtn"),false,"■ Stop");$("startBtn").style.background="#d93025";
- $("status").textContent="Listening";$("status").style.color=COLORS.QUIET;syncLottie()}
+ $("status").textContent="Listening";$("status").style.color=COLORS.QUIET;syncLottie();
+ if(NEURAL)startNeuralVad()}
+// EXPERIMENTAL, opt-in only (?neural=1 or localStorage sonex_neural=1). Default
+// path is 100% unchanged. Loads open-source Silero VAD in-browser; on ANY failure
+// it silently does nothing and the normal engine keeps running.
+const NEURAL=new URLSearchParams(location.search).get("neural")==="1"||localStorage.getItem("sonex_neural")==="1";
+let neuralVad=null;
+async function startNeuralVad(){ if(neuralVad)return;
+ try{const m=await import("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/index.js");
+  neuralVad=await m.MicVAD.new({
+   onSpeechStart:()=>{if(listening){state="TALKING";inSpeech=true;onState()}},
+   onSpeechEnd:()=>{if(listening){state="QUIET";inSpeech=false;onState()}}});
+  neuralVad.start();console.log("SoNex: neural VAD active")}
+ catch(e){console.warn("SoNex: neural VAD unavailable, using standard engine",e)}}
+function stopNeuralVad(){try{neuralVad&&neuralVad.destroy&&neuralVad.destroy()}catch(_){}neuralVad=null}
 function stopListening(){
+ stopNeuralVad();
  if(stream)stream.getTracks().forEach(t=>t.stop());
  if(audioCtx)audioCtx.close();stream=audioCtx=null;listening=false;state="QUIET";inSpeech=false;
  talkS=quietS=boostS=whisS=whisGS=0;cal.shift=0;ring.length=0;zring.length=0;floorV=null;

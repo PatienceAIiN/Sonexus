@@ -219,6 +219,26 @@ async def test_rules_and_commands_sync_across_three_devices(client, db):
     assert (await client.get("/v1/tv/poll", headers=tvh)).json()["commands"] == []  # delivered once
 
 
+async def test_admin_publishes_neural_vad_model(client, db, storage, monkeypatch):
+    from app.config import settings
+    from .conftest import register_device
+    monkeypatch.setattr(settings, "admin_password", "Test@10")
+    ok = await client.post("/admin/login", json={"username": "admin", "password": "Test@10"})
+    client.cookies.update(ok.cookies)
+    r = await client.post("/admin/api/publish-model",
+                          files={"file": ("silero_vad.onnx", b"FAKEONNXBYTES", "application/octet-stream")},
+                          data={"kind": "vad", "version": "1.0"})
+    assert r.status_code == 200 and r.json()["kind"] == "vad"
+    rows = (await client.get("/admin/api/table/models")).json()["rows"]
+    assert any(m["kind"] == "vad" and m["status"] == "active" for m in rows)
+    # A device now sees the vad model in its OTA manifest (phone picks it up, no app update).
+    client.cookies.clear()
+    reg = await register_device(client)
+    man = await client.get(f"/v1/models/manifest?device={reg['device_id']}",
+                           headers={"X-Device-Key": reg["api_key"]})
+    assert man.status_code == 200 and "vad" in man.json()["models"]
+
+
 async def test_admin_table_pagination(client, db, monkeypatch):
     from app.config import settings
     monkeypatch.setattr(settings, "admin_password", "Test@10")

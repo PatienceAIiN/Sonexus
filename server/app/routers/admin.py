@@ -6,8 +6,10 @@ admin JWT in an HttpOnly cookie.
 """
 from datetime import datetime, timedelta, timezone
 
+import hashlib
+
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -220,6 +222,36 @@ async def admin_train(db: AsyncSession = Depends(get_db)):
     LAST_TRAIN.clear()
     LAST_TRAIN.update(report)
     return report
+
+
+@router.post("/admin/api/publish-model", dependencies=[Depends(require_admin)])
+async def publish_model(kind: str = Form(...), version: str = Form(...),
+                        file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """Publish a neural model file (Silero VAD = kind 'vad', YAMNet = 'sound') to
+    storage and register it active. Phones fetch it via the OTA manifest and the
+    existing MlClassifier uses it — no app update needed. Retires the prior one."""
+    from .. import cache
+    from ..storage import get_storage
+    if kind not in ("vad", "sound"):
+        raise HTTPException(status_code=400, detail="kind must be 'vad' or 'sound'")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    sha = hashlib.sha256(data).hexdigest()
+    ext = (file.filename or "model.bin").rsplit(".", 1)[-1][:6]
+    fname = f"{kind}-{version}.{ext}"
+    key = f"models/{fname}"
+    backend = get_storage().put(key, data, "application/octet-stream") or "local"
+    for old in (await db.execute(
+        select(Model).where(Model.kind == kind, Model.status == "active")
+    )).scalars().all():
+        old.status = "rollback"
+    db.add(Model(home_id=None, kind=kind, file=fname, version=version, sha256=sha,
+                 min_app_version=1, status="active", storage_key=key, backend=backend))
+    await db.commit()
+    cache.invalidate("admin:")
+    return {"kind": kind, "version": version, "file": fname, "sha256": sha[:12],
+            "size": len(data), "backend": backend}
 
 
 @router.get("/admin/api/clips", dependencies=[Depends(require_admin)])
