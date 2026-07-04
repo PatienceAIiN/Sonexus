@@ -154,6 +154,10 @@ object Prefs {
 
     // ---- Master listening switch: OFF until the user presses Start, and it
     // never flips itself — only the Start/Stop button changes it. ----
+    // Preferred microphone (AudioDeviceInfo.id); -1 = automatic/built-in.
+    fun micDeviceId(c: Context) = sp(c).getInt("mic_device_id", -1)
+    fun setMicDeviceId(c: Context, id: Int) = sp(c).edit().putInt("mic_device_id", id).apply()
+
     fun listeningEnabled(c: Context) = sp(c).getBoolean("listening_on", false)
     fun setListeningEnabled(c: Context, v: Boolean) =
         sp(c).edit().putBoolean("listening_on", v).apply()

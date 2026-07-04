@@ -206,7 +206,20 @@ async def admin_stats(db: AsyncSession = Depends(get_db)):
         ],
         "labels": {(lbl or "unlabelled"): n for lbl, n in label_rows},
         "last_train": LAST_TRAIN,
+        "self_improve": _self_improve(metrics),
     }, ttl_sec=2)
+
+
+def _self_improve(metrics) -> dict:
+    """How much accuracy has climbed since the first recorded training run."""
+    accs = [m.value for m in reversed(metrics) if m.name == "accuracy"]  # chronological
+    if len(accs) < 1:
+        return {"first": None, "latest": None, "gain_pct": 0.0, "runs": 0,
+                "series": []}
+    first, latest = accs[0], accs[-1]
+    return {"first": round(first, 4), "latest": round(latest, 4),
+            "gain_pct": round((latest - first) * 100, 2), "runs": len(accs),
+            "series": [round(a, 4) for a in accs[-40:]]}
 
 
 # Last automatic/manual training run, surfaced on the dashboard.
@@ -349,6 +362,7 @@ async function refresh(){
  const c=s.counts;
  counts.innerHTML=Object.entries(c).map(([k,v])=>`<div class="card" onclick="openTable('${k}')"><b>${v}</b><span>${k}</span></div>`).join('')
   +`<div class="card" onclick="openClips()" style="outline:2px solid #7C4DFF33"><b>${c.clips??0}</b><span>🎧 uploaded audio ▶</span></div>`
+  +`<div class="card" onclick="openSelfImprove()" style="outline:2px solid #0d948855"><b class="ok">${(s.self_improve&&s.self_improve.gain_pct>=0?'+':'')}${s.self_improve?s.self_improve.gain_pct:0}%</b><span>📈 self-improved ▶</span></div>`
   +`<div class="card"><b class="${s.health.db?'ok':'bad'}">${s.health.db?'✓':'✗'}</b><span>database</span></div>`
   +`<div class="card"><b class="${s.health.redis?'ok':'bad'}">${s.health.redis?'✓':'✗'}</b><span>redis</span></div>`;
  const lt=s.last_train||{};
@@ -440,6 +454,27 @@ async function openClips(offset){
  modal.style.display='flex';
 }
 function playClip(id){const p=document.getElementById('clipPlayer');if(!p)return;p.src='/admin/api/clip/'+id+'/audio';p.play().catch(()=>{});}
+async function openSelfImprove(){
+ const r=await fetch('/admin/api/stats');if(!r.ok){alert('Unavailable');return}
+ const s=await r.json();const si=s.self_improve||{series:[],runs:0,gain_pct:0,latest:null};
+ mtitle.textContent='Self-improvement';
+ const ser=si.series||[];let graph='<p class="muted">No training runs yet — the model improves after the nightly 02:00 IST run.</p>';
+ if(ser.length){const w=560,h=90,mn=Math.min(...ser),mx=Math.max(...ser)||1;
+  const path=ser.length>1?ser.map((v,i)=>`${i?'L':'M'}${i*w/(ser.length-1)},${h-6-(v-mn)/(mx-mn||1)*(h-14)}`).join(' '):`M0,${h/2} L${w},${h/2}`;
+  graph=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:110px"><path d="${path}" fill="none" stroke="#0d9488" stroke-width="2.5"/></svg>`;}
+ const ds=(s.datasets||[]).map(d=>`<tr><td><b>${d.name}</b></td><td>${d.kind}</td><td>${d.use}</td></tr>`).join('');
+ const lb=s.labels||{};const total=Object.values(lb).reduce((a,b)=>a+b,0);
+ mbody.innerHTML=
+  `<div style="font-size:1.7rem;font-weight:800;color:#0d9488">${si.gain_pct>=0?'+':''}${si.gain_pct}% <span style="font-size:.8rem;color:#5f6368;font-weight:400">accuracy since first run · ${si.runs} run(s) · latest ${si.latest!=null?(si.latest*100).toFixed(1)+'%':'—'}</span></div>`+
+  graph+
+  '<h3 style="margin:14px 0 6px">Data used to train &amp; improve</h3>'+
+  `<p class="muted">Consented clips: ${total}${total?' ('+Object.entries(lb).map(([k,v])=>k+' '+v).join(' · ')+')':' — none yet'}</p>`+
+  '<table>'+ds+'</table>'+
+  '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'+
+  `<button class="rowbtn" onclick="openTable('models')">🧠 Trained models (view / edit / delete)</button>`+
+  `<button class="rowbtn" onclick="openClips()">🎧 Uploaded audio</button></div>`;
+ modal.style.display='flex';
+}
 async function trainNow(){
  const b=document.getElementById('trainBtn'),m=document.getElementById('trainMsg');
  b.disabled=true;b.textContent='Training…';m.textContent='';

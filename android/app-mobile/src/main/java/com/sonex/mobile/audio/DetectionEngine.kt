@@ -23,6 +23,10 @@ class DetectionEngine(
     private val classifier: FrameClassifier,
     /** RAW mic source (matches the web app) — see [MicSource]. */
     private val audioSource: Int = MediaRecorder.AudioSource.UNPROCESSED,
+    /** AudioDeviceInfo.id of the mic the user picked in Settings; -1 = auto. */
+    private val preferredMicId: Int = -1,
+    /** Used only to resolve [preferredMicId] to a device; null = auto mic. */
+    private val audioManager: android.media.AudioManager? = null,
     private val onState: (RoomState, Double) -> Unit
 ) {
     companion object {
@@ -48,16 +52,34 @@ class DetectionEngine(
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
-        val rec = AudioRecord(
-            audioSource, // RAW audio (no AGC/NS) so speech modulation survives — like the web app
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            maxOf(minBuf, FRAME_SAMPLES * 2 * 4)
-        )
+        val bufBytes = maxOf(minBuf, FRAME_SAMPLES * 2 * 4)
+        // Some phones don't support UNPROCESSED and return an uninitialised
+        // recorder (then startRecording throws -> "Ready/not working"). Try the
+        // chosen source first, then fall back until one actually initialises.
+        val sources = listOf(audioSource,
+            MediaRecorder.AudioSource.MIC,
+            MediaRecorder.AudioSource.VOICE_RECOGNITION).distinct()
+        var rec: AudioRecord? = null
+        var usedSource = audioSource
+        for (src in sources) {
+            val r = runCatching {
+                AudioRecord(src, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, bufBytes)
+            }.getOrNull()
+            if (r != null && r.state == AudioRecord.STATE_INITIALIZED) { rec = r; usedSource = src; break }
+            runCatching { r?.release() }
+        }
+        if (rec == null) { running = false; return } // mic unavailable — bail safely
         // Only add echo cancellation on processed sources; UNPROCESSED must stay raw.
-        if (audioSource != MediaRecorder.AudioSource.UNPROCESSED && AcousticEchoCanceler.isAvailable()) {
-            aec = AcousticEchoCanceler.create(rec.audioSessionId)?.apply { enabled = true }
+        if (usedSource != MediaRecorder.AudioSource.UNPROCESSED && AcousticEchoCanceler.isAvailable()) {
+            aec = runCatching { AcousticEchoCanceler.create(rec.audioSessionId)?.apply { enabled = true } }.getOrNull()
+        }
+        // Honour the user's chosen microphone from Settings, if it's connected.
+        val am = audioManager
+        if (preferredMicId >= 0 && am != null) runCatching {
+            am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+                .firstOrNull { it.id == preferredMicId }
+                ?.let { rec.setPreferredDevice(it) }
         }
         record = rec
         rec.startRecording()

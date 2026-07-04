@@ -319,6 +319,47 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            // ---- Microphone picker (which mic SoNex listens with) ----
+            Spacer(Modifier.height(12.dp))
+            Text("Microphone", style = MaterialTheme.typography.titleSmall)
+            val am = remember { ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+            val mics = remember {
+                am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).filter {
+                    it.type in intArrayOf(
+                        android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC,
+                        android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                        android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                        android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                    )
+                }
+            }
+            fun micLabel(t: Int) = when (t) {
+                android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth mic"
+                android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired mic"
+                android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> "USB mic"
+                else -> "Built-in mic"
+            }
+            var micId by remember { mutableStateOf(Prefs.micDeviceId(ctx)) }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = micId == -1, onClick = {
+                    buzz(); micId = -1; Prefs.setMicDeviceId(ctx, -1)
+                    toast("Automatic mic ✓ — press Stop then Start to apply")
+                }, label = { Text("Automatic") })
+                mics.forEach { d ->
+                    FilterChip(selected = micId == d.id, onClick = {
+                        buzz(); micId = d.id; Prefs.setMicDeviceId(ctx, d.id)
+                        toast("${micLabel(d.type)} ✓ — press Stop then Start to apply")
+                    }, label = { Text(micLabel(d.type)) })
+                }
+            }
+            Text(
+                "Best quality on the built-in mic. Sound plays on your connected device (earbuds/speaker) automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Spacer(Modifier.height(8.dp))
             listOf(
                 "tv" to "SoNex TV", "bt" to "Bluetooth",
