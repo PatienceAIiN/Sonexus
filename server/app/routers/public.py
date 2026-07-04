@@ -81,247 +81,523 @@ APPLE_MARK = """<svg width="17" height="17" viewBox="0 0 24 24" fill="#8a8f98" s
 LANDING = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SoNex — volume that listens to the room</title>
+<title>SoNex — Volume that listens to the room</title>
 <meta name="description" content="SoNex automatically lowers your TV and phone volume when someone talks, and restores it when the room is quiet.">
 __GSV__
 <link rel="canonical" href="__BASE__/">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E0B1A'/%3E%3Crect x='6' y='13' width='3.5' height='8' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='11.5' y='9' width='3.5' height='16' rx='1.7' fill='%237C4DFF'/%3E%3Crect x='17' y='5' width='3.5' height='24' rx='1.7' fill='%232DD4BF'/%3E%3Crect x='22.5' y='11' width='3.5' height='12' rx='1.7' fill='%237C4DFF'/%3E%3C/svg%3E">
-<meta property="og:title" content="SoNex — volume that listens to the room">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23050505'/%3E%3Crect x='6' y='13' width='3.5' height='8' rx='1.7' fill='%23FFFFFF'/%3E%3Crect x='11.5' y='9' width='3.5' height='16' rx='1.7' fill='%23FFFFFF'/%3E%3Crect x='17' y='5' width='3.5' height='24' rx='1.7' fill='%23FFFFFF'/%3E%3Crect x='22.5' y='11' width='3.5' height='12' rx='1.7' fill='%23FFFFFF'/%3E%3C/svg%3E">
+<meta property="og:title" content="SoNex — Volume that listens to the room">
 <meta property="og:description" content="Someone talks, your TV gets quiet. Room settles, volume comes back. On-device AI, private by default.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="__BASE__/">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --violet:#7C4DFF; --teal:#0d9488; --ink:#202124; --sub:#5f6368; --line:#e8eaed; }
-  * { margin:0; box-sizing:border-box; }
+  :root { --bg: #000000; --ink: #ffffff; --sub: #888888; --line: rgba(255,255,255,0.12); --accent: #ffffff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
   html { scroll-behavior:smooth; }
-  body { font-family:'Google Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-         color:var(--ink); background:transparent; line-height:1.6; }
-  /* Antigravity-style light animated background: soft drifting colour fields. */
-  .aurora { position:fixed; inset:0; z-index:-1; overflow:hidden; background:#fff; }
-  .aurora b { position:absolute; border-radius:50%; filter:blur(80px); opacity:.45; will-change:transform; }
-  .aurora b:nth-child(1){ width:48vw;height:48vw;left:-10vw;top:-12vw;
-     background:radial-gradient(circle,#7C4DFF66,transparent 70%); animation:drift1 20s ease-in-out infinite; }
-  .aurora b:nth-child(2){ width:42vw;height:42vw;right:-8vw;top:6vw;
-     background:radial-gradient(circle,#2DD4BF66,transparent 70%); animation:drift2 25s ease-in-out infinite; }
-  .aurora b:nth-child(3){ width:40vw;height:40vw;left:28vw;bottom:-16vw;
-     background:radial-gradient(circle,#FF5C7A55,transparent 70%); animation:drift3 30s ease-in-out infinite; }
-  @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(7vw,9vw) scale(1.1)} }
-  @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-8vw,7vw) scale(1.05)} }
-  @keyframes drift3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(5vw,-9vw) scale(1.08)} }
-  @media(prefers-reduced-motion:reduce){ .aurora b{animation:none} }
-  nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:28px;
-        padding:14px 6vw; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
-        border-bottom:1px solid var(--line); }
-  nav .logo { font-weight:900; font-size:1.8rem; letter-spacing:-.5px; margin-right:auto;
-      background:linear-gradient(120deg,#7C4DFF,#2DD4BF,#FF5C7A,#7C4DFF); background-size:300% 300%;
-      -webkit-background-clip:text; background-clip:text; color:transparent;
-      animation:shimmer 6s ease infinite, breathe 2.6s ease-in-out infinite; display:inline-block; }
-  @keyframes shimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-  @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-  nav a { color:var(--sub); text-decoration:none; font-size:.95rem; }
+  body { font-family: 'Inter', system-ui, sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; font-size:16px; overflow-x:hidden; }
+  
+  ::selection { background: var(--accent); color: var(--bg); }
+  
+  /* Navbar */
+  nav { position:fixed; top:0; width:100%; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:20px 5vw; background:rgba(0,0,0,0.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  nav .logo { font-weight:800; font-size:1.75rem; letter-spacing:-0.8px; color:#ffffff; text-shadow:0 0 16px rgba(255,255,255,0.4), 0 0 30px rgba(255,255,255,0.15); text-decoration:none; display:flex; align-items:center; gap:10px; transition:text-shadow 0.3s ease; }
+  nav .logo:hover { text-shadow:0 0 25px rgba(255,255,255,0.7), 0 0 45px rgba(255,255,255,0.3); }
+  nav .logo span { font-weight:400; font-size:0.85rem; color:var(--sub); letter-spacing:0.5px; text-shadow:none; background:rgba(255,255,255,0.06); padding:3px 10px; border-radius:99px; border:1px solid var(--line); font-family:monospace; text-transform:uppercase; }
+  nav .links { display:flex; gap:32px; }
+  nav a { color:var(--sub); text-decoration:none; font-size:0.95rem; font-weight:500; transition:color 0.2s; }
   nav a:hover { color:var(--ink); }
-  .hero { text-align:center; padding:70px 6vw 60px; }
-  .rotator { min-height:7rem; display:flex; align-items:center; justify-content:center; padding:0 4vw; }
-  .rotator span { font-size:clamp(2rem,6.5vw,3.8rem); font-weight:800; letter-spacing:-1.5px; line-height:1.15;
-      background:linear-gradient(120deg,#7C4DFF,#2DD4BF); -webkit-background-clip:text;
-      background-clip:text; color:transparent; opacity:0; transform:translateY(18px);
-      transition:opacity .9s ease, transform .9s ease; }
-  .rotator span.show { opacity:1; transform:translateY(0); }
-  .hero .sub { margin-top:10px; font-size:1.05rem; color:var(--sub); }
-  .bars { display:flex; gap:5px; align-items:flex-end; height:40px; justify-content:center; margin:28px 0 4px; }
-  .bars i { width:7px; border-radius:4px; background:var(--violet); animation:eq 1.2s ease-in-out infinite; }
-  .bars i:nth-child(2){animation-delay:.15s; background:var(--teal);} .bars i:nth-child(3){animation-delay:.3s;}
-  .bars i:nth-child(4){animation-delay:.45s; background:var(--teal);} .bars i:nth-child(5){animation-delay:.6s;}
-  @keyframes eq { 0%,100%{height:20%} 50%{height:100%} }
-  .cta { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:34px; }
-  .btn { display:inline-flex; align-items:center; gap:10px; padding:14px 28px; border-radius:26px;
-         font-weight:600; font-size:1rem; text-decoration:none; transition:box-shadow .2s, transform .15s; }
-  .btn:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(124,77,255,.25); }
-  .btn.primary { background:var(--violet); color:#fff; }
-  .btn.secondary { background:#fff; color:var(--violet); border:1.5px solid var(--violet); }
-  .btn.web { background:linear-gradient(120deg,#7C4DFF,#2DD4BF); color:#fff;
-    animation:webglow 2.2s ease-in-out infinite; }
-  @keyframes webglow { 0%,100%{box-shadow:0 0 10px rgba(124,77,255,.45)}
-    50%{box-shadow:0 0 26px rgba(45,212,191,.65)} }
-  section { padding:64px 6vw; max-width:1100px; margin:0 auto; }
-  section h2 { font-size:2rem; font-weight:700; text-align:center; margin-bottom:38px; }
-  .features { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:22px; }
-  .f { border:1px solid var(--line); border-radius:16px; padding:26px; transition:box-shadow .2s; }
-  .f:hover { box-shadow:0 8px 28px rgba(32,33,36,.08); }
-  .f .em { font-size:1.9rem; } .f h3 { margin:10px 0 6px; font-size:1.05rem; }
-  .f p { color:var(--sub); font-size:.93rem; }
-  .how { background:#f8f9fa; }
-  .how ol { max-width:640px; margin:0 auto; color:var(--sub); font-size:1.02rem; }
-  .how li { margin:14px 0; padding-left:6px; } .how b { color:var(--ink); }
-  .contact form { max-width:520px; margin:0 auto; display:grid; gap:14px; }
-  .contact input, .contact textarea { padding:13px 16px; border:1px solid var(--line);
-     border-radius:10px; font:inherit; width:100%; }
-  .contact input:focus, .contact textarea:focus { outline:2px solid var(--violet); border-color:transparent; }
-  .contact button { justify-self:center; border:0; cursor:pointer; }
-  #contact-status { text-align:center; color:var(--teal); min-height:1.4em; }
-  .ddi { display:flex; justify-content:space-between; gap:16px; padding:10px; border-radius:9px;
-     color:var(--ink); text-decoration:none; font-weight:600; font-size:.95rem; }
-  .ddi span { color:var(--sub); font-weight:400; font-size:.8rem; }
-  .ddi:hover { background:#f8f9fa; } .ddi.off { opacity:.5; cursor:default; }
-  footer { border-top:1px solid var(--line); padding:26px 6vw; display:flex; flex-wrap:wrap;
-           gap:14px; align-items:center; justify-content:space-between; color:var(--sub); font-size:.92rem; }
-  footer .links { display:flex; gap:22px; } footer a { color:var(--sub); text-decoration:none; }
-  footer a:hover { color:var(--violet); }
-  @media (max-width:640px) {
-    nav { gap:16px; padding:12px 5vw; }
-    nav a { font-size:.85rem; }
-    .hero { padding:44px 5vw 40px; }
-    .rotator { min-height:5.4rem; }
-    section { padding:44px 5vw; }
-    .cta { flex-direction:column; align-items:stretch; }
-    #dd { position:static !important; transform:none !important; min-width:0 !important; width:100%; margin-top:10px; }
-    .btn { justify-content:center; }
-    footer { flex-direction:column; text-align:center; }
+  
+  /* Hero */
+  .hero { min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:120px 5vw 80px; position:relative; border-bottom:1px solid var(--line); }
+  @keyframes fadeInTag { 0% { opacity:0; transform:translateY(-8px); } 100% { opacity:1; transform:translateY(0); } }
+  .hero-tag { font-family:monospace; font-size:0.85rem; letter-spacing:1px; text-transform:uppercase; color:var(--sub); margin-left:-12px; margin-bottom:24px; border:1px solid var(--line); padding:6px 12px; border-radius:99px; display:inline-block; animation:fadeInTag 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .rotator { min-height: 80px; height: auto; display: flex; align-items: flex-start; position: relative; margin-bottom: 28px; }
+  .rotator > span { font-size: clamp(2.8rem, 6.5vw, 4.5rem); font-weight: 700; letter-spacing: -2px; line-height: 1.1; color: var(--ink); display: block; width: 100%; transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rotator > span.fade-out { opacity: 0; transform: translateY(6px); }
+  .cursor { display: inline-block; width: 5px; height: 0.85em; background-color: var(--accent); vertical-align: baseline; margin-left: 4px; animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  @media (max-width: 768px) { .rotator { min-height: 60px; } }
+  .hero .sub { font-size:clamp(1.1rem, 2vw, 1.4rem); color:var(--sub); max-width:640px; margin-bottom:48px; font-weight:400; line-height:1.5; }
+  
+  .cta-group { display:flex; gap:16px; align-items:center; flex-wrap:wrap; position:relative;}
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:16px 32px; font-weight:600; font-size:1rem; text-decoration:none; transition:all 0.3s ease; border-radius:4px; cursor:pointer; }
+  .btn.primary { background:var(--accent); color:var(--bg); border:1px solid var(--accent); }
+  .btn.primary:hover { background:transparent; color:var(--accent); }
+  
+  /* Dropdown */
+  #dd { display:none; position:absolute; top:calc(100% + 12px); left:0; background:#0a0a0a; border:1px solid var(--line); border-radius:8px; padding:8px; min-width:320px; z-index:50; box-shadow:0 24px 60px rgba(0,0,0,0.8); }
+  .dd-header { font-size:0.75rem; color:var(--sub); padding:8px 12px; letter-spacing:1px; text-transform:uppercase; font-family:monospace; }
+  .ddi { display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:6px; color:var(--ink); text-decoration:none; font-size:0.95rem; font-weight:500; transition:background 0.2s; }
+  .ddi:hover { background:rgba(255,255,255,0.08); }
+  .ddi span.tag { font-size:0.75rem; color:var(--sub); font-family:monospace; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px; }
+  .ddi.off { opacity:0.5; pointer-events:none; }
+  .dd-note { font-size:0.8rem; color:var(--sub); padding:12px; border-top:1px solid var(--line); margin-top:8px; line-height:1.4; }
+  
+  /* Sections Focus & Scroll */
+  section { scroll-margin-top: 80px; position:relative; }
+  .focus-section { animation: sectionFocusGlow 2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes sectionFocusGlow {
+    0% { box-shadow: 0 0 0 2px rgba(255,255,255,0.8), 0 0 40px rgba(255,255,255,0.3); }
+    50% { box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 0 60px rgba(255,255,255,0.4); }
+    100% { box-shadow: 0 0 0 0px transparent, 0 0 0px transparent; }
   }
-</style></head><body>
-<div class="aurora"><b></b><b></b><b></b></div>
+  /* Sections */
+  section { padding:140px 5vw; border-bottom:1px solid var(--line); }
+  .section-header { margin-bottom:80px; }
+  .section-tag { font-family:monospace; font-size:0.85rem; color:var(--sub); text-transform:uppercase; letter-spacing:1px; margin-bottom:20px; display:block; }
+  section h2 { font-size:clamp(3rem, 6vw, 4.5rem); font-weight:700; letter-spacing:-2px; line-height:1.05; }
+  
+  /* Features Grid */
+  .features { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:1px; background:var(--line); border:1px solid var(--line); }
+  .f { background:var(--bg); padding:64px 48px; transition:background 0.3s; }
+  .f:hover { background:#080808; }
+  .f .em { font-size:3rem; margin-bottom:32px; display:inline-block; font-weight:300; }
+  .f h3 { font-size:1.5rem; margin-bottom:16px; font-weight:600; letter-spacing:-0.5px; }
+  .f p { color:var(--sub); font-size:1.05rem; line-height:1.6; }
+  
+  /* How it works */
+  .how-grid { display:grid; grid-template-columns:1fr 1fr; gap:80px; }
+  .step { padding:40px 0; border-bottom:1px solid var(--line); }
+  .step:last-child { border-bottom:none; }
+  .step-num { font-family:monospace; color:var(--sub); font-size:0.9rem; margin-bottom:16px; display:block; letter-spacing:1px; }
+  .step h3 { font-size:1.8rem; margin-bottom:16px; letter-spacing:-0.5px; font-weight:600;}
+  .step p { color:var(--sub); line-height:1.6; font-size:1.05rem; }
+  
+  /* Theme Switcher Button */
+  .theme-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 6px 12px;
+    border-radius: 99px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  .theme-btn:hover {
+    background: rgba(255,255,255,0.12);
+    transform: scale(1.04);
+  }
+  .theme-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .theme-btn:active .theme-icon {
+    transform: rotate(180deg) scale(0.85);
+  }
+  
+  /* Light Theme Variables */
+  body { transition: background 0.4s ease, color 0.4s ease; }
+  body.light-mode {
+    --bg: #f8f9fa;
+    --ink: #111827;
+    --sub: #4b5563;
+    --line: #e5e7eb;
+    --accent: #111827;
+  }
+  body.light-mode nav {
+    background: rgba(248,249,250,0.85);
+  }
+  body.light-mode .cm-box, body.light-mode #consent {
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+  }
+  body.light-mode section#how {
+    background: #f1f3f5 !important;
+  }
+  body.light-mode footer {
+    background: #f1f3f5 !important;
+  }
+  body.light-mode nav .logo {
+    color: #111827;
+    text-shadow: 0 0 16px rgba(0,0,0,0.15);
+  }
+  body.light-mode nav .logo span {
+    background: rgba(0,0,0,0.06);
+    color: #4b5563;
+  }
+  body.light-mode .theme-btn {
+    background: rgba(0,0,0,0.06);
+  }
+  body.light-mode .ddi {
+    background: rgba(0,0,0,0.03);
+  }
+  body.light-mode .ddi:hover {
+    background: rgba(0,0,0,0.07);
+  }
+
+  /* Footer */
+  footer { padding:80px 5vw; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:32px; font-size:0.95rem; color:var(--sub); background:#050505;}
+  footer a { color:var(--sub); text-decoration:none; transition:color 0.2s; }
+  footer a:hover { color:var(--ink); }
+  .footer-links { display:flex; gap:32px; font-weight:500; }
+  
+  /* Modals */
+  #contactModal, #downloadModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:5vw; }
+  #contactModal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:5vw; }
+  .cm-box { background:#080808; border:1px solid var(--line); border-radius:8px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; padding:32px 24px; box-shadow:0 32px 80px rgba(0,0,0,0.8); }
+  .cm-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .cm-head h2 { font-size:2rem; letter-spacing:-1px; font-weight:600; }
+  .cm-sub { color:var(--sub); font-size:1rem; margin-bottom:32px; }
+  .cm-x { background:transparent; border:none; color:var(--sub); font-size:2rem; cursor:pointer; line-height:1; }
+  .cm-x:hover { color:var(--ink); }
+  .cm-in { width:100%; padding:16px; margin-bottom:16px; background:transparent; border:1px solid var(--line); color:var(--ink); font-family:inherit; font-size:1rem; border-radius:4px; outline:none; transition:border-color 0.3s; }
+  .cm-in:focus { border-color:var(--accent); }
+  textarea.cm-in { min-height:120px; resize:vertical; }
+  .cm-send { width:100%; padding:16px; background:var(--accent); color:var(--bg); font-weight:600; font-size:1rem; border:none; border-radius:4px; cursor:pointer; transition:opacity 0.3s; }
+  .cm-send:hover { opacity:0.9; }
+  #contact-status { text-align:center; margin-top:16px; font-size:0.9rem; color:var(--sub); }
+  
+  /* Consent */
+  #consent { display:none; position:fixed; bottom:24px; left:5vw; right:5vw; max-width:1200px; margin:0 auto; z-index:150; background:#0a0a0a; border:1px solid var(--line); padding:24px 32px; border-radius:8px; flex-wrap:wrap; gap:24px; align-items:center; justify-content:space-between; box-shadow:0 24px 80px rgba(0,0,0,0.8); }
+  #consent p { font-size:0.9rem; color:var(--sub); max-width:800px; line-height:1.6; }
+  #consent a { color:var(--ink); text-decoration:underline; }
+  
+  @media (max-width: 768px) {
+    nav { padding: 16px 4vw; }
+    nav .logo { font-size: 1.4rem; }
+    nav .logo span { font-size: 0.75rem; padding: 2px 8px; }
+    nav .links { gap: 16px; font-size: 0.85rem; }
+    .hero { padding: 100px 5vw 60px; }
+    .hero-tag { margin-left: 0; }
+    .rotator { min-height: 60px; margin-bottom: 20px; }
+    .rotator > span { font-size: clamp(2rem, 8vw, 3.2rem); }
+    .hero .sub { font-size: 1rem; margin-bottom: 32px; }
+    .how-grid { grid-template-columns: 1fr; gap: 24px; }
+    .features { grid-template-columns: 1fr; gap: 1px; }
+    footer { padding: 48px 5vw; flex-direction: column; align-items: flex-start; gap: 20px; }
+    .footer-links { width: 100%; justify-content: space-between; }
+    .cta-group { width: 100%; }
+    .cta-group .btn { width: 100%; justify-content: center; }
+  }
+
+  .reveal { opacity:0; transform:translateY(30px); transition:all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+  .reveal.active { opacity:1; transform:translateY(0); }
+  .features .f.reveal { transition-delay: 0.1s; }
+  .features .f.reveal:nth-child(2) { transition-delay: 0.2s; }
+  .features .f.reveal:nth-child(3) { transition-delay: 0.3s; }
+  .features .f.reveal:nth-child(4) { transition-delay: 0.4s; }
+  .step.reveal:nth-child(1) { transition-delay: 0.1s; }
+  .step.reveal:nth-child(2) { transition-delay: 0.2s; }
+</style>
+</head><body>
+
 <nav>
-  <span class="logo">SoNex</span>
-  <a href="#features">Features</a><a href="#how">How it works</a><a href="#download" onclick="openDl(event)">Download</a><a href="#" onclick="return openContact(event)">Contact</a>
+  <a href="/" class="logo">SoNex <span>Audio Engine</span></a>
+  <div class="links">
+    <a href="#features" onclick="return scrollToSection('features', event)">Features</a>
+    <a href="#how" onclick="return scrollToSection('how', event)">Process</a>
+    <a href="#" onclick="return openContact(event)">Inquiries</a>
+  </div>
 </nav>
+
 <div class="hero">
-  <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="rotator" id="rotator"><span class="show">The volume that listens back.</span></div>
-  <p class="sub">Adaptive volume that hears the room — on-device AI, private by default.</p>
-  <div class="cta" id="download" style="position:relative">
-    <button class="btn primary" onclick="dd.style.display=dd.style.display==='block'?'none':'block'">
-      <span id="platicon">__ANDROID__</span> Download v__VER__ <span style="font-size:.8em">▾</span>
+  <div style="display:flex; align-items:center; margin-bottom:24px;"><span class="hero-tag" style="margin-bottom:0;">Intelligent Volume</span></div>
+  <div class="rotator" id="rotator"><span>Volume that listens.<span class="cursor"></span></span></div>
+  <p class="sub">An adaptive, on-device AI audio engine that detects human speech and instantly ducks your media. Private by design.</p>
+  
+  <div class="cta-group" id="download">
+    <button class="btn primary" onclick="openDownloadModal(event)">
+      <span id="platicon">__ANDROID__</span> Download v__VER__
     </button>
-    <div id="dd" style="display:none;position:absolute;top:110%;left:50%;transform:translateX(-50%);
-      background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(32,33,36,.14);
-      padding:10px;min-width:290px;text-align:left;z-index:5">
-      <div style="font-size:.75rem;color:var(--sub);padding:4px 10px">ANDROID · v__VER__ · Android 8.0+ (API 26)</div>
-      <a class="ddi" href="/download/mobile">__ANDMARK__Android phone <span>arm64 APK</span></a>
-      <a class="ddi" href="/download/tv">__ANDMARK__Android TV <span>APK · sideload</span></a>
-      <div style="font-size:.75rem;color:var(--sub);padding:8px 10px 4px;border-top:1px solid var(--line);margin-top:6px">
-        APPLE · coming soon</div>
-      <span class="ddi off">__APLMARK__iPhone <span>iOS 16+ · in review</span></span>
-      <span class="ddi off">__APLMARK__Mac <span>macOS 13+ · in review</span></span>
-      <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
-      On Android TV use a file manager or "Send files to TV".</div>
-    </div>
   </div>
 </div>
+
 <section id="features">
-  <h2>Made for real living rooms</h2>
+  <div class="section-header reveal">
+    <span class="section-tag">Capabilities</span>
+    <h2>Engineered for<br>real environments.</h2>
+  </div>
   <div class="features">
-    <div class="f"><div class="em">🗣️</div><h3>Knows real speech</h3><p>On-device AI tells conversation apart from kitchen noise — audio never leaves your phone by default.</p></div>
-    <div class="f"><div class="em">📺</div><h3>Every screen &amp; speaker</h3><p>TV, Bluetooth, earphones and Chromecast — each with its own rule: duck, mute, pause or boost.</p></div>
-    <div class="f"><div class="em">🎙️</div><h3>Voice control</h3><p>"SoNex, lower volume" — offline, in English and Hindi, only after your explicit consent.</p></div>
-    <div class="f"><div class="em">📞</div><h3>Call aware</h3><p>Phone rings? Everything ducks instantly and stays down until the call is over and the room is quiet.</p></div>
-    <div class="f"><div class="em">🧠</div><h3>Learns your home</h3><p>Your corrections train a per-home model, delivered over the air. It keeps getting better.</p></div>
-    <div class="f"><div class="em">🔒</div><h3>Private by default</h3><p>Every sharing option is off until you turn it on, and "delete all my data" means exactly that.</p></div>
+    <div class="f reveal">
+      <div class="em">01</div>
+      <h3>Advanced Speech Recognition</h3>
+      <p>Local neural networks distinguish genuine human conversation from ambient noise, ignoring fans and appliances entirely.</p>
+    </div>
+    <div class="f reveal">
+      <div class="em">02</div>
+      <h3>Multi-Target Control</h3>
+      <p>Automatically duck, mute, or pause your TV, Bluetooth speakers, or Cast targets independently.</p>
+    </div>
+    <div class="f reveal">
+      <div class="em">03</div>
+      <h3>Seamless Over-The-Air</h3>
+      <p>Acoustic models refine themselves silently and download in the background. Your engine improves without app updates.</p>
+    </div>
+    <div class="f reveal">
+      <div class="em">04</div>
+      <h3>Absolute Privacy</h3>
+      <p>Data never leaves the device. If telemetry is explicitly enabled, it strictly strips audio and uses zero-knowledge profiles.</p>
+    </div>
   </div>
 </section>
-<section class="how" id="how">
-  <h2>Up and running in two minutes</h2>
-  <ol>
-    <li><b>Install both apps</b> — SoNex on your phone, SoNex TV on your television.</li>
-    <li><b>Pair with a 4-digit code</b> shown on the TV, over your own Wi-Fi.</li>
-    <li><b>Calibrate once</b> — three quick steps teach SoNex your room.</li>
-    <li><b>Talk.</b> The volume gets out of the way, then comes back on its own.</li>
-  </ol>
+
+<section id="how" style="background:#030303;">
+  <div class="section-header reveal">
+    <span class="section-tag">Deployment</span>
+    <h2>Integration protocol.</h2>
+  </div>
+  <div class="how-grid">
+    <div>
+      <div class="step reveal">
+        <span class="step-num">STEP 01</span>
+        <h3>Install the ecosystem</h3>
+        <p>Deploy the SoNex client to your primary device and the companion application to your smart TV.</p>
+      </div>
+      <div class="step reveal">
+        <span class="step-num">STEP 02</span>
+        <h3>Initialize handshake</h3>
+        <p>Establish a secure local connection via a simple 4-digit code displayed on the TV screen.</p>
+      </div>
+    </div>
+    <div>
+      <div class="step reveal">
+        <span class="step-num">STEP 03</span>
+        <h3>Acoustic calibration</h3>
+        <p>Perform a one-time, three-stage room analysis to establish noise floors and trigger thresholds.</p>
+      </div>
+      <div class="step reveal">
+        <span class="step-num">STEP 04</span>
+        <h3>Autonomous operation</h3>
+        <p>The system runs invisibly. When conversation begins, media yields immediately.</p>
+      </div>
+    </div>
+  </div>
 </section>
+
+<footer>
+  <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+    <div>© 2026 Patience AI. All rights reserved.</div>
+    <button id="themeToggle" class="theme-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+      <span class="theme-icon moon-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </span>
+      <span class="theme-icon sun-icon" style="display:none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+      </span>
+      <span id="themeLabel">Dark Mode</span>
+    </button>
+  </div>
+  <div class="footer-links">
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/changelog">Changelog</a>
+    <a href="#" onclick="return openContact(event)">Contact</a>
+  </div>
+</footer>
+
+<div id="downloadModal" onclick="if(event.target===this)closeDownloadModal()">
+  <div class="cm-box">
+    <div class="cm-head" style="margin-bottom:24px;">
+      <h2>Get SoNex.</h2>
+      <button class="cm-x" onclick="closeDownloadModal()">&times;</button>
+    </div>
+    
+    <div class="dd-header" style="display:flex; align-items:center; justify-content:space-between;">
+      <span>Android Platform</span>
+      <span class="tag" style="background:rgba(255,255,255,0.08); border:1px solid var(--line); font-size:0.75rem; padding:2px 8px; border-radius:99px; text-transform:none; font-weight:500; color:var(--sub);">Android 8+</span>
+    </div>
+    <a class="ddi" href="/download/mobile" style="margin-bottom:8px;">
+      <div>
+        <div style="font-weight:600;">Android Phone / Mobile</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Handheld devices (v__VER__)</div>
+      </div>
+      <span class="tag">arm64 APK</span>
+    </a>
+    <a class="ddi" href="/download/tv" style="margin-bottom:16px;">
+      <div>
+        <div style="font-weight:600;">Android TV</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Smart TVs & Streaming Sticks</div>
+      </div>
+      <span class="tag">TV APK</span>
+    </a>
+    
+    <div class="dd-header" style="border-top:1px solid var(--line); padding-top:16px; margin-top:16px;">Apple Ecosystem</div>
+    <div class="ddi off">
+      <div>
+        <div style="font-weight:600;">iOS & macOS</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Apple Silicon & Mobile</div>
+      </div>
+      <span class="tag">Coming Soon</span>
+    </div>
+    
+    <div class="dd-note" style="margin-top:16px;">Sideloading required for Android APKs. Transfer TV APK over local network using Send Files to TV.</div>
+  </div>
+</div>
+
 <div id="contactModal" onclick="if(event.target===this)closeContact()">
   <div class="cm-box">
-    <div class="cm-head"><h2>Talk to us</h2>
-      <button class="cm-x" onclick="closeContact()" aria-label="Close">&times;</button></div>
-    <p class="cm-sub">Questions, feedback or partnership — we usually reply within a day.</p>
+    <div class="cm-head">
+      <h2>Inquiries.</h2>
+      <button class="cm-x" onclick="closeContact()">&times;</button>
+    </div>
+    <p class="cm-sub">Direct contact for support, licensing, or feedback.</p>
     <form onsubmit="return sendContact(event)">
-      <input class="cm-in" name="name" placeholder="Your name" required maxlength="100">
-      <input class="cm-in" name="email" type="email" placeholder="Email" required maxlength="200">
-      <textarea class="cm-in" name="message" placeholder="How can we help?" rows="4" required maxlength="4000"></textarea>
-      <button class="cm-send" type="submit">Send message</button>
+      <input class="cm-in" name="name" placeholder="Name" required maxlength="100">
+      <input class="cm-in" name="email" type="email" placeholder="Email Address" required maxlength="200">
+      <textarea class="cm-in" name="message" placeholder="Message..." required maxlength="4000"></textarea>
+      <button class="cm-send" type="submit">Submit Inquiry</button>
       <div id="contact-status"></div>
     </form>
   </div>
 </div>
-<style>
- #contactModal{display:none;position:fixed;inset:0;z-index:60;background:rgba(32,33,36,.5);
-   align-items:center;justify-content:center;padding:5vw}
- #contactModal .cm-box{background:#fff;border-radius:20px;max-width:440px;width:100%;
-   padding:26px 26px 24px;box-shadow:0 24px 70px rgba(32,33,36,.32);animation:pop .25s ease}
- #contactModal .cm-head{display:flex;align-items:center;justify-content:space-between}
- #contactModal h2{margin:0;font-size:1.5rem}
- #contactModal .cm-sub{margin:6px 0 18px;color:var(--sub);font-size:.92rem;line-height:1.4}
- #contactModal .cm-x{border:0;background:#f1f3f4;color:#5f6368;width:34px;height:34px;border-radius:50%;
-   font-size:1.4rem;line-height:1;cursor:pointer;flex:none}
- #contactModal .cm-x:hover{background:#e8eaed}
- #contactModal .cm-in{width:100%;box-sizing:border-box;padding:13px 15px;margin-bottom:12px;
-   border:1.5px solid var(--line);border-radius:12px;font-size:1rem;font-family:inherit;
-   background:#fbfbfd;transition:border-color .15s,box-shadow .15s;resize:vertical}
- #contactModal .cm-in:focus{outline:none;border-color:var(--violet);background:#fff;
-   box-shadow:0 0 0 3px rgba(124,77,255,.15)}
- #contactModal textarea.cm-in{min-height:104px}
- #contactModal .cm-send{width:100%;padding:14px;border:0;border-radius:12px;background:var(--violet);
-   color:#fff;font-weight:700;font-size:1.02rem;cursor:pointer;transition:transform .12s,filter .15s}
- #contactModal .cm-send:hover{filter:brightness(1.06)} #contactModal .cm-send:active{transform:scale(.98)}
- #contactModal #contact-status{text-align:center;color:var(--teal);min-height:1.4em;margin-top:10px;font-size:.9rem}
-</style>
-<footer>
-  <span>A product of <a href="https://patienceai.in"><b>Patience AI</b></a></span>
-  <div class="links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/changelog">Changelog</a><a href="#" onclick="return openContact(event)">Contact</a></div>
-</footer>
-<div id="consent" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;
-  background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 24px rgba(32,33,36,.08);
-  padding:14px 6vw;display:none;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
-  <span style="font-size:.9rem;color:var(--sub)">We use one strictly-necessary cookie for admin sign-in and
-  local storage to remember this choice — no tracking, no ads, no analytics. Audio is only ever collected
-  if you turn on "Let SoNex learn my home", is used solely to improve detection, is never shared, and is
-  deleted right after training. <a href="/privacy" style="color:var(--violet)">Privacy &amp; audio policy</a></span>
-  <button class="btn primary" style="padding:9px 22px" onclick="acceptConsent()">Got it</button>
+
+<div id="consent">
+  <p>We respect your privacy. This site uses one strictly-necessary cookie for authentication. Acoustic models run locally. If you opt-in to telemetry, audio is processed ephemerally and deleted instantly. See our <a href="/privacy">Privacy Policy</a>.</p>
+  <button class="btn primary" onclick="acceptConsent()">Acknowledge</button>
 </div>
+
 <script>
-if(!localStorage.getItem('sonex-consent')){document.getElementById('consent').style.display='flex';}
-function acceptConsent(){localStorage.setItem('sonex-consent','1');document.getElementById('consent').style.display='none';}
-function openContact(e){if(e)e.preventDefault();document.getElementById('contactModal').style.display='flex';return false;}
-function closeContact(){document.getElementById('contactModal').style.display='none';}
-const LINES = [
-  "The volume that listens back.",
-  "Someone talks. TV goes quiet.",
-  "Room settles. Volume returns.",
-  "Blender roars. SoNex turns it up.",
-  "No remotes. No shushing."
-];
-const APPLE='<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>';
-const AND=document.getElementById('platicon').innerHTML;
-let flip=false; setInterval(()=>{flip=!flip;document.getElementById('platicon').innerHTML=flip?APPLE:AND;},2600);
-function openDl(e){
-  e.preventDefault(); e.stopPropagation();
-  document.getElementById('download').scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(()=>{dd.style.display='block';},400);
+if(!localStorage.getItem('sonex-consent')) { document.getElementById('consent').style.display='flex'; }
+function acceptConsent() { localStorage.setItem('sonex-consent','1'); document.getElementById('consent').style.display='none'; }
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-mode');
+  localStorage.setItem('sonex-theme', isLight ? 'light' : 'dark');
+  updateThemeUI(isLight);
 }
-document.addEventListener('click',e=>{if(!e.target.closest('#download'))dd.style.display='none';});
+
+function updateThemeUI(isLight) {
+  const moon = document.querySelector('.moon-icon');
+  const sun = document.querySelector('.sun-icon');
+  const label = document.getElementById('themeLabel');
+  if (moon && sun && label) {
+    moon.style.display = isLight ? 'none' : 'inline-flex';
+    sun.style.display = isLight ? 'inline-flex' : 'none';
+    label.textContent = isLight ? 'Light Mode' : 'Dark Mode';
+  }
+}
+
 (function(){
-  const box=document.getElementById('rotator'), el=box.querySelector('span');
-  let i=0, paused=false;
-  box.addEventListener('mouseenter',()=>paused=true);
-  box.addEventListener('mouseleave',()=>paused=false);
-  setInterval(()=>{
-    if(paused) return;
-    el.classList.remove('show');
-    setTimeout(()=>{ i=(i+1)%LINES.length; el.textContent=LINES[i]; el.classList.add('show'); }, 900);
-  }, 4500);
+  const saved = localStorage.getItem('sonex-theme');
+  if (saved === 'light') {
+    document.body.classList.add('light-mode');
+    window.addEventListener('DOMContentLoaded', () => updateThemeUI(true));
+  }
 })();
-async function sendContact(e){
-  e.preventDefault();
-  const f=e.target, s=document.getElementById('contact-status');
-  s.textContent='Sending…';
-  try{
-    const r=await fetch('/v1/contact',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:f.name.value,email:f.email.value,message:f.message.value})});
-    s.textContent=r.ok?'Thanks! We\\'ll get back to you soon. ✓':'Something went wrong — email info@patienceai.in';
-    if(r.ok)f.reset();
-  }catch(_){s.textContent='Network error — try again';}
+
+function scrollToSection(id, e) {
+  if (e) e.preventDefault();
+  const el = document.getElementById(id);
+  if (!el) return false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  
+  // Instantly reveal all inner steps/cards
+  const reveals = el.querySelectorAll('.reveal');
+  reveals.forEach(r => r.classList.add('active'));
+  
+  // Trigger focus glow animation
+  el.classList.remove('focus-section');
+  void el.offsetWidth;
+  el.classList.add('focus-section');
+  setTimeout(() => el.classList.remove('focus-section'), 2100);
   return false;
 }
+
+function openContact(e) { if(e) e.preventDefault(); document.getElementById('contactModal').style.display='flex'; return false; }
+function closeContact() { document.getElementById('contactModal').style.display='none'; }
+
+
+  // Stagger hero elements
+  const heroEls = document.querySelectorAll('.hero > div, .hero > p');
+  heroEls.forEach((el, i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1) ' + (0.1 * i) + 's';
+    setTimeout(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    }, 100);
+  });
+
+function openDownloadModal(e) { if(e) e.preventDefault(); document.getElementById('downloadModal').style.display='flex'; return false; }
+function closeDownloadModal() { document.getElementById('downloadModal').style.display='none'; }
+
+const LINES = [
+  "Volume that listens.",
+  "Media fades automatically.",
+  "Silence restores volume.",
+  "Zero remotes needed.",
+  "Private acoustic AI.",
+  "Smart room audio.",
+  "Fades on speech.",
+  "On-device intelligence."
+];
+(function(){
+  const el = document.querySelector('#rotator span');
+  let i = 0;
+  let charIdx = LINES[0].length;
+  let isDeleting = true;
+  
+  function type() {
+    const currentLine = LINES[i];
+    
+    if (isDeleting) {
+      charIdx--;
+      el.innerHTML = currentLine.substring(0, charIdx) + '<span class="cursor"></span>';
+    } else {
+      charIdx++;
+      el.innerHTML = currentLine.substring(0, charIdx) + '<span class="cursor"></span>';
+    }
+    
+    let typeSpeed = isDeleting ? 25 : 55;
+    
+    if (!isDeleting && charIdx === currentLine.length) {
+      typeSpeed = 3200; // Pause at end of phrase
+      isDeleting = true;
+    } else if (isDeleting && charIdx === 0) {
+      el.classList.add('fade-out');
+      setTimeout(() => {
+        i = (i + 1) % LINES.length;
+        isDeleting = false;
+        el.classList.remove('fade-out');
+        setTimeout(type, 200);
+      }, 350);
+      return;
+    }
+    
+    setTimeout(type, typeSpeed);
+  }
+  
+  setTimeout(type, 2500);
+})();
+
+async function sendContact(e) {
+  e.preventDefault();
+  const f = e.target, s = document.getElementById('contact-status');
+  s.textContent = 'Transmitting...';
+  try {
+    const r = await fetch('/v1/contact', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: f.name.value, email: f.email.value, message: f.message.value})
+    });
+    s.textContent = r.ok ? 'Message received.' : 'Transmission failed. Contact info@patienceai.in';
+    if(r.ok) f.reset();
+  } catch(_) { s.textContent = 'Network error.'; }
+  return false;
+}
+
+function reveal() {
+  const reveals = document.querySelectorAll('.reveal');
+  for (let i = 0; i < reveals.length; i++) {
+    const windowHeight = window.innerHeight;
+    const elementTop = reveals[i].getBoundingClientRect().top;
+    if (elementTop < windowHeight - 80) reveals[i].classList.add('active');
+  }
+}
+window.addEventListener('scroll', reveal);
+reveal(); // initial trigger
 </script>
 </body></html>""".replace("__ANDROID__", ANDROID_SVG).replace("__ANDMARK__", ANDROID_MARK).replace("__APLMARK__", APPLE_MARK)
 
@@ -329,10 +605,22 @@ async function sendContact(e){
 def _legal_page(title: str, body: str) -> str:
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} — SoNex</title>
-<style>body{{font-family:system-ui,sans-serif;color:#202124;max-width:760px;margin:0 auto;padding:48px 24px;line-height:1.7}}
-h1{{color:#7C4DFF}} a{{color:#7C4DFF}} h2{{margin-top:28px;font-size:1.15rem}}</style></head>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>body{{font-family:'Inter',system-ui,sans-serif;background:#050505;color:#f3f3f3;max-width:760px;margin:0 auto;padding:64px 5vw;line-height:1.7;font-size:16px}}
+h1{{font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin-bottom:40px}}
+h2{{margin-top:40px;font-size:1.3rem;font-weight:600;letter-spacing:-0.5px;color:#fff}}
+a{{color:#fff;text-decoration:underline;text-underline-offset:4px;transition:color 0.2s}}
+a:hover{{color:#888}}
+p,li{{color:#a0a0a0;margin-bottom:16px}}
+ul{{padding-left:20px}}
+.footer-logo{{margin-top:64px;color:#666;font-size:0.9rem}}
+.footer-logo a{{color:#888;text-decoration:none;font-weight:500}}
+.footer-logo a:hover{{color:#fff}}
+::selection {{ background: #fff; color: #000; }}
+</style></head>
 <body><h1>{title}</h1>{body}
-<p style="margin-top:40px;color:#5f6368">A product of <a href="https://patienceai.in"><b>Patience AI</b></a></p>
+<p class="footer-logo">A product of <a href="https://patienceai.in">Patience AI</a></p>
+<div style="margin-top:32px"><a href="/" style="color:#666;text-decoration:none;font-size:0.9rem">← Back to SoNex</a></div>
 </body></html>"""
 
 
