@@ -361,10 +361,11 @@ function classify(db,speechShaped,whisperShaped,sw,fx){
  if(db>talkGate&&person)return"SPEECH";
  if(db>boostGate&&!person)return"NOISE";
  return"QUIET"}
-// Robust ambient floor: low percentile of recent levels, updated EVERY frame, so
-// a silent room can never stay stuck reading loud. Sets cal.shift so the gates use it.
-const fring=[];function floorEst(db){fring.push(db);if(fring.length>120)fring.shift();
- if(fring.length<8)return db;const s=[...fring].sort((a,b)=>a-b);return s[Math.floor(s.length*0.12)]}
+// Robust ambient floor (asymmetric follower): falls FAST to the true quiet
+// ambient, rises only VERY slowly — so sustained talking/cooler can't drag it up
+// and choke off detection ("worked first, then stopped"). Updated every frame.
+let floorV=null;function floorEst(db){if(floorV===null){floorV=db;return db}
+ floorV+=(db<floorV?0.35:0.0015)*(db-floorV);return floorV}
 function step(k){const leak=(s,hit,cap)=>hit?Math.min(cap,s+2):Math.max(0,s-1);
  talkS=leak(talkS,k==="SPEECH",TALK_ON);boostS=leak(boostS,k==="NOISE",TALK_ON);
  whisS=leak(whisS,k==="WHISPER"||k==="WHISPER_GROUP",TALK_ON);
@@ -467,7 +468,7 @@ async function startListening(){
 function stopListening(){
  if(stream)stream.getTracks().forEach(t=>t.stop());
  if(audioCtx)audioCtx.close();stream=audioCtx=null;listening=false;state="QUIET";inSpeech=false;
- talkS=quietS=boostS=whisS=whisGS=0;cal.shift=0;ring.length=0;zring.length=0;fring.length=0;
+ talkS=quietS=boostS=whisS=whisGS=0;cal.shift=0;ring.length=0;zring.length=0;floorV=null;
  busy($("startBtn"),false,"▶ Start");$("startBtn").style.background="";
  $("status").textContent="Ready";$("status").style.color="";$("dbLine").innerHTML="&nbsp;";
  if($("usingLine"))$("usingLine").textContent=""}
