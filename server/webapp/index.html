@@ -313,7 +313,7 @@ if(token)show("home");
 // ---- detection engine (port of the app's core, with hysteresis + floor guard) ----
 // WHISPER_GROUP shares the whisper colour — to the user it's still "whispering".
 const COLORS={QUIET:"#0d9488",TALKING:"#FF5C7A",BOOST:"#FFB020",WHISPER:"#7C4DFF",WHISPER_GROUP:"#7C4DFF"};
-const STEADY_SWING=5,MIN_WHISPER_SWING=2.5,WHISPER_GROUP_GAP=6,SPEECH_FLUX=0.04;
+const STEADY_SWING=5,MIN_WHISPER_SWING=2.5,WHISPER_GROUP_GAP=6,SPEECH_FLUX=0.04,WHISPER_MIN_FLUX=0.015;
 // ZCR-flux ring: masking-robust speech cue (a talker's ZCR fluctuates even when
 // a loud steady machine hides the level). p90-p10 spread of recent ZCRs.
 const zring=[];function zflux(zcr){zring.push(zcr);if(zring.length>34)zring.shift();
@@ -361,7 +361,7 @@ function classify(db,speechShaped,whisperShaped,sw,fx){
  const breath=whisperShaped&&!speechShaped&&!steady;
  if(db>talkGate&&person)return"SPEECH";
  if(db>boostGate&&((!speechShaped&&!whisperShaped)||steady))return"NOISE";
- if(whisperShaped&&sw>=MIN_WHISPER_SWING&&db>floor+6&&(db<=talkGate||breath))
+ if(whisperShaped&&sw>=MIN_WHISPER_SWING&&fx>=WHISPER_MIN_FLUX&&db>floor+6&&(db<=talkGate||breath))
   return db>=floor+6+WHISPER_GROUP_GAP?"WHISPER_GROUP":"WHISPER";
  return"QUIET"}
 function observe(db,k){ // adaptive floor, capped so a silent night can't oversensitise

@@ -121,7 +121,7 @@ class RoomStateMachineTest {
             RoomStateMachine.classify(-52.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
         // Soft, low in the whisper band, below the duck trigger => solo WHISPER.
         assertEquals(FrameKind.WHISPER,
-            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
+            RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0, zcrFluxRatio = 0.05))
     }
 
     @Test fun classify_soft_nonspeech_as_quiet() {

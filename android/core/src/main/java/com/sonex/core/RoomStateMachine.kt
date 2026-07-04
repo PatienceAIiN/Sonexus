@@ -96,6 +96,9 @@ class RoomStateMachine(
          *  absolute loudness — never "stuck on Listening" next to a loud cooler. */
         const val TALK_OVER_FLOOR_DB = 14.0
         const val BOOST_OVER_FLOOR_DB = 22.0
+        /** A whisper/murmur fluctuates in ZCR (breath vs. consonants); a steady
+         *  cooler/fan does not. Below this ZCR-flux it's a machine, not a person. */
+        const val WHISPER_MIN_FLUX = 0.015
 
         fun classify(
             db: Double,
@@ -141,6 +144,7 @@ class RoomStateMachine(
                 // *unvoiced* whisper is allowed above it too. The louder it is,
                 // the more it's several people => group whisper (gentle duck).
                 whisperShaped && dbSwingDb >= ModulationTracker.MIN_WHISPER_SWING_DB &&
+                    zcrFluxRatio >= WHISPER_MIN_FLUX &&   // a human whisper fluctuates; a cooler doesn't
                     noiseFloorDb != null && db > noiseFloorDb + WHISPER_MARGIN_DB &&
                     (db <= talkGate || unvoicedBreath) ->
                     if (db >= noiseFloorDb + WHISPER_MARGIN_DB + WHISPER_GROUP_GAP_DB)
