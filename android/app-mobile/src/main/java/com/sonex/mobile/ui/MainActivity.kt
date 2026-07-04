@@ -165,6 +165,10 @@ class MainActivity : ComponentActivity() {
         ContextCompat.startForegroundService(this, Intent(this, ListeningService::class.java))
     }
 
+    private fun toast(m: String) = runOnUiThread {
+        android.widget.Toast.makeText(this, m, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     // Fully-automatic start: follow the paired TV onto its Wi-Fi.
     private var netCb: android.net.ConnectivityManager.NetworkCallback? = null
 
@@ -179,8 +183,15 @@ class MainActivity : ComponentActivity() {
             val url = Prefs.serverUrl(this@MainActivity)
             val key = Prefs.deviceKey(this@MainActivity)
             val id = Prefs.deviceId(this@MainActivity)
-            if (url != null && key != null && id != null)
-                com.sonex.mobile.data.ModelStore(this@MainActivity).sync(url, key, id)
+            if (url != null && key != null && id != null) {
+                val store = com.sonex.mobile.data.ModelStore(this@MainActivity)
+                // One-time: tell the user the smart-detection model is downloading.
+                val hadVad = store.verifiedFile("vad") != null
+                if (!hadVad) toast("Downloading smart detection… (one-time)")
+                val updated = store.sync(url, key, id)
+                if (!hadVad && "vad" in updated && store.verifiedFile("vad") != null)
+                    toast("Smart detection ready ✓ — restart listening to use it")
+            }
         }
     }
 

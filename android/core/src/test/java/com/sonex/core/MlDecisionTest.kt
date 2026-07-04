@@ -32,8 +32,9 @@ class MlDecisionTest {
         assertEquals(FrameKind.NOISE, decide(0.1, false, -20.0))
     }
 
-    @Test fun loud_nonspeech_without_yamnet_does_not_boost() {
-        // No sound-class model => can't distinguish appliance from music; be conservative.
+    @Test fun loud_nonspeech_without_yamnet_defers_to_heuristic() {
+        // MlDecision stays conservative (no YAMNet => no boost here); MlClassifier
+        // routes non-speech frames to the heuristic, which handles quiet/noise/boost.
         assertEquals(FrameKind.QUIET, decide(0.1, null, -20.0))
     }
 

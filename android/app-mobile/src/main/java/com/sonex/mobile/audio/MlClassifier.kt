@@ -43,6 +43,7 @@ class MlClassifier(
     )
     private val smoother = SpeechProbSmoother()
     private var vadSeen = false
+    private val floorTracker = com.sonex.core.FloorTracker()
 
     // ---- Silero VAD ----
     private var ort: OrtEnvironment? = null
@@ -78,18 +79,14 @@ class MlClassifier(
         if (broken) return fallback.classify(buf, n, db)
         return try {
             feed(buf, n)
-            val kind = if (!vadSeen && lastSoundIsSpeech == null)
-                fallback.classify(buf, n, db)
-            else MlDecision.decide(
-                // hangover-smoothed verdict, not the raw per-window probability
-                speechProb = if (vadSeen) (if (smoother.speaking) 1.0 else 0.0) else null,
-                soundIsSpeech = lastSoundIsSpeech,
-                db = db,
-                trigger = adapter.trigger,
-                boostTrigger = adapter.boostTrigger
-            )
-            adapter.observe(db, kind)
-            kind
+            val floor = floorTracker.update(db)  // robust ambient, every frame
+            // Silero decides the HARD part — is this a person speaking? — robustly
+            // in noise. Gate it floor-relatively so a quiet phone mic still clears
+            // it. Everything that is NOT confident speech is handed to the proven
+            // heuristic (quiet / machine-boost), which avoids boosting on media.
+            val talkGate = minOf(adapter.trigger, floor + com.sonex.core.RoomStateMachine.TALK_OVER_FLOOR_DB)
+            if (vadSeen && smoother.speaking && db > talkGate) FrameKind.SPEECH
+            else fallback.classify(buf, n, db)
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
             broken = true

@@ -63,6 +63,7 @@ a{color:var(--violet)} footer{margin-top:36px;text-align:center;color:var(--sub)
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot.on{background:var(--teal);animation:pulse 1.6s ease infinite}.dot.off{background:#c4c7cc}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes dlmove{0%{margin-left:-35%}100%{margin-left:100%}}
 #modal{display:none;position:fixed;inset:0;background:rgba(32,33,36,.5);z-index:20;align-items:center;justify-content:center;padding:6vw}
 #modal.on{display:flex}
 #modal .box{background:var(--bg);border-radius:18px;padding:24px;max-width:380px;width:100%;animation:pop .25s ease}
@@ -197,6 +198,10 @@ h2{font-size:1.3rem;margin:2px 0 12px}h3{font-size:1.02rem;margin:0 0 8px}
 
 <div id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);
  padding:12px 22px;border-radius:12px;font-size:.92rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:30"></div>
+<div id="dlToast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:14px 20px;border-radius:12px;font-size:.9rem;z-index:31;min-width:250px;max-width:88vw;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.32)">
+ <div id="dlMsg">Preparing smart detection…</div>
+ <div style="height:6px;background:rgba(255,255,255,.22);border-radius:3px;margin-top:9px;overflow:hidden">
+  <div id="dlBar" style="height:100%;width:35%;background:linear-gradient(90deg,#7C4DFF,#2DD4BF);border-radius:3px"></div></div></div>
 <div id="tvModal" style="display:none;position:fixed;inset:0;background:rgba(32,33,36,.5);z-index:20;align-items:center;justify-content:center;padding:6vw">
  <div class="box" style="background:var(--bg);border-radius:18px;padding:24px;max-width:400px;width:100%">
   <h3>📺 Pair your TV</h3>
@@ -472,13 +477,25 @@ async function startListening(){
 // Neural VAD ON by default; escape hatch to disable: ?neural=0 or localStorage sonex_neural=0.
 const NEURAL=new URLSearchParams(location.search).get("neural")!=="0"&&localStorage.getItem("sonex_neural")!=="0";
 let neuralVad=null;
+function dlShow(msg){const t=$("dlToast");if(!t)return;$("dlMsg").textContent=msg;
+ $("dlBar").style.animation="dlmove 1.1s ease-in-out infinite";$("dlBar").style.width="35%";$("dlBar").style.background="linear-gradient(90deg,#7C4DFF,#2DD4BF)";t.style.display="block"}
+function dlDone(msg,ok){const t=$("dlToast");if(!t)return;$("dlMsg").textContent=msg;
+ $("dlBar").style.animation="none";$("dlBar").style.width="100%";$("dlBar").style.background=ok?"#0d9488":"#d93025";
+ setTimeout(()=>t.style.display="none",2800)}
 async function startNeuralVad(){ if(neuralVad)return;
+ // Show a one-time download progress toast the first time (model is ~1-2 MB + runtime).
+ const first=localStorage.getItem("sonex_vad_loaded")!=="1";
+ if(first)dlShow("Downloading smart detection… (one-time)");
  try{const m=await import("https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/index.js");
   neuralVad=await m.MicVAD.new({
    onSpeechStart:()=>{if(listening){state="TALKING";inSpeech=true;onState()}},
    onSpeechEnd:()=>{if(listening){state="QUIET";inSpeech=false;onState()}}});
-  neuralVad.start();console.log("SoNex: neural VAD active")}
- catch(e){console.warn("SoNex: neural VAD unavailable, using standard engine",e)}}
+  neuralVad.start();
+  localStorage.setItem("sonex_vad_loaded","1");
+  if(first)dlDone("✓ Smart detection ready — you can use it now",true);
+  console.log("SoNex: neural VAD active")}
+ catch(e){if(first)dlDone("Using standard detection (offline)",false);
+  console.warn("SoNex: neural VAD unavailable, using standard engine",e)}}
 function stopNeuralVad(){try{neuralVad&&neuralVad.destroy&&neuralVad.destroy()}catch(_){}neuralVad=null}
 function stopListening(){
  stopNeuralVad();
