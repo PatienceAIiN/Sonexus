@@ -289,22 +289,52 @@ __GSV__
   #consent p { font-size:0.9rem; color:var(--sub); max-width:800px; line-height:1.6; }
   #consent a { color:var(--ink); text-decoration:underline; }
   
+  .menu-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: -8px;
+    z-index: 101;
+  }
+
   @media (max-width: 768px) {
-    nav { padding: 16px 4vw; }
-    nav .logo { font-size: 1.4rem; }
-    nav .logo span { font-size: 0.75rem; padding: 2px 8px; }
-    nav .links { gap: 16px; font-size: 0.85rem; }
-    .hero { padding: 100px 5vw 60px; }
-    .hero-tag { margin-left: 0; }
-    .rotator { min-height: 60px; margin-bottom: 20px; }
-    .rotator > span { font-size: clamp(2rem, 8vw, 3.2rem); }
-    .hero .sub { font-size: 1rem; margin-bottom: 32px; }
-    .how-grid { grid-template-columns: 1fr; gap: 24px; }
+    nav { padding: 14px 5vw; position: fixed; top: 0; left: 0; right: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); justify-content: space-between; }
+    nav .logo { font-size: 1.3rem; }
+    nav .logo span { font-size: 0.7rem; padding: 2px 6px; }
+    .menu-toggle { display: flex; align-items: center; justify-content: center; }
+    nav .links {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      flex-direction: column;
+      padding: 18px 5vw;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    nav.open .links { display: flex; }
+    .hero { padding: 110px 5vw 60px; }
+    .hero-tag { margin-left: 0; font-size: 0.75rem; }
+    .rotator { min-height: 70px; margin-bottom: 16px; }
+    .rotator > span { font-size: clamp(1.8rem, 7.5vw, 2.8rem); }
+    .hero .sub { font-size: 0.95rem; margin-bottom: 28px; line-height: 1.5; }
+    section { padding: 80px 5vw; }
+    .section-header { margin-bottom: 40px; }
+    section h2 { font-size: clamp(2rem, 7vw, 3rem); }
+    .how-grid { grid-template-columns: 1fr; gap: 20px; }
     .features { grid-template-columns: 1fr; gap: 1px; }
-    footer { padding: 48px 5vw; flex-direction: column; align-items: flex-start; gap: 20px; }
-    .footer-links { width: 100%; justify-content: space-between; }
+    .f { padding: 40px 24px; }
+    footer { padding: 48px 5vw; flex-direction: column; align-items: flex-start; gap: 24px; }
+    .footer-links { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .cta-group { width: 100%; }
-    .cta-group .btn { width: 100%; justify-content: center; }
+    .cta-group .btn { width: 100%; justify-content: center; padding: 16px 24px; }
+    .cm-box { width: 92vw; max-width: 440px; padding: 24px; }
   }
 
   .reveal { opacity:0; transform:translateY(30px); transition:all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -318,12 +348,16 @@ __GSV__
 </style>
 </head><body>
 
-<nav>
+<nav id="navbar">
   <a href="/" class="logo">SoNex <span>Audio Engine</span></a>
+  <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle Navigation Menu">
+    <svg class="hamburger-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    <svg class="close-icon" style="display:none;" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </button>
   <div class="links">
-    <a href="#features" onclick="return scrollToSection('features', event)">Features</a>
-    <a href="#how" onclick="return scrollToSection('how', event)">Process</a>
-    <a href="#" onclick="return openContact(event)">Inquiries</a>
+    <a href="#features" onclick="closeMobileMenu(); return scrollToSection('features', event)">Features</a>
+    <a href="#how" onclick="closeMobileMenu(); return scrollToSection('how', event)">Process</a>
+    <a href="#" onclick="closeMobileMenu(); return openContact(event)">Inquiries</a>
   </div>
 </nav>
 
@@ -531,6 +565,24 @@ function scrollToSection(id, e) {
 
 function openContact(e) { if(e) e.preventDefault(); document.getElementById('contactModal').style.display='flex'; return false; }
 function closeContact() { document.getElementById('contactModal').style.display='none'; }
+
+function toggleMobileMenu() {
+  const nav = document.getElementById('navbar');
+  if (!nav) return;
+  const isOpen = nav.classList.toggle('open');
+  const hIcon = nav.querySelector('.hamburger-icon');
+  const cIcon = nav.querySelector('.close-icon');
+  if (hIcon) hIcon.style.display = isOpen ? 'none' : 'inline-block';
+  if (cIcon) cIcon.style.display = isOpen ? 'inline-block' : 'none';
+}
+function closeMobileMenu() {
+  const nav = document.getElementById('navbar');
+  if (nav) nav.classList.remove('open');
+  const hIcon = document.querySelector('.hamburger-icon');
+  const cIcon = document.querySelector('.close-icon');
+  if (hIcon) hIcon.style.display = 'inline-block';
+  if (cIcon) cIcon.style.display = 'none';
+}
 
 
   // Stagger hero elements
