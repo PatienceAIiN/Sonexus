@@ -233,13 +233,33 @@ __GSV__
   }
   body.light-mode .theme-btn {
     background: rgba(0,0,0,0.06);
+    border-color: var(--line);
+    color: var(--ink);
   }
-  body.light-mode .ddi {
-    background: rgba(0,0,0,0.03);
+  body.light-mode .theme-btn:hover {
+    background: rgba(0,0,0,0.1);
   }
-  body.light-mode .ddi:hover {
-    background: rgba(0,0,0,0.07);
-  }
+  body.light-mode .f { background:#ffffff; border-color:#e5e7eb; }
+  body.light-mode .f:hover { border-color:#9ca3af; box-shadow:0 10px 30px rgba(0,0,0,0.05); }
+  body.light-mode .f h3 { color:#111827; }
+  body.light-mode .f p { color:#4b5563; }
+  body.light-mode .step { background:#ffffff; border-color:#e5e7eb; }
+  body.light-mode .step:hover { border-color:#9ca3af; box-shadow:0 10px 30px rgba(0,0,0,0.05); }
+  body.light-mode .step h3 { color:#111827; }
+  body.light-mode .step p { color:#4b5563; }
+  body.light-mode .btn-primary { background:#111827; color:#ffffff; }
+  body.light-mode .btn-primary:hover { background:#1f2937; }
+  body.light-mode .btn-secondary { background:#ffffff; color:#111827; border-color:#e5e7eb; }
+  body.light-mode .btn-secondary:hover { background:#f3f4f6; border-color:#d1d5db; color:#111827; }
+  body.light-mode .dd-header { color:#111827; }
+  body.light-mode .ddi { background:#ffffff; border-color:#e5e7eb; }
+  body.light-mode .ddi:hover { background:#f3f4f6; border-color:#d1d5db; }
+  body.light-mode .ddi h4 { color:#111827; }
+  body.light-mode .ddi p { color:#4b5563; }
+  body.light-mode nav a { color:#4b5563; }
+  body.light-mode nav a:hover { color:#111827; }
+  body.light-mode footer a { color:#4b5563; }
+  body.light-mode footer a:hover { color:#111827; }
 
   /* Footer */
   footer { padding:80px 5vw; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:32px; font-size:0.95rem; color:var(--sub); background:#050505;}
@@ -606,24 +626,109 @@ reveal(); // initial trigger
 
 
 def _legal_page(title: str, body: str) -> str:
-    return f"""<!doctype html><html><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} — SoNex</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>body{{font-family:'Inter',system-ui,sans-serif;background:#050505;color:#f3f3f3;max-width:760px;margin:0 auto;padding:64px 5vw;line-height:1.7;font-size:16px}}
-h1{{font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin-bottom:40px}}
-h2{{margin-top:40px;font-size:1.3rem;font-weight:600;letter-spacing:-0.5px;color:#fff}}
-a{{color:#fff;text-decoration:underline;text-underline-offset:4px;transition:color 0.2s}}
-a:hover{{color:#888}}
-p,li{{color:#a0a0a0;margin-bottom:16px}}
-ul{{padding-left:20px}}
-.footer-logo{{margin-top:64px;color:#666;font-size:0.9rem}}
-.footer-logo a{{color:#888;text-decoration:none;font-weight:500}}
-.footer-logo a:hover{{color:#fff}}
-::selection {{ background: #fff; color: #000; }}
+<style>
+:root {{
+  --bg: #050505;
+  --ink: #f3f3f3;
+  --sub: #a0a0a0;
+  --line: #222222;
+  --card-bg: #080808;
+}}
+body {{
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 5vw;
+  line-height: 1.7;
+  font-size: 16px;
+  transition: background 0.4s ease, color 0.4s ease;
+}}
+body.light-mode {{
+  --bg: #f8f9fa;
+  --ink: #111827;
+  --sub: #4b5563;
+  --line: #e5e7eb;
+  --card-bg: #ffffff;
+}}
+h1 {{ font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; margin-bottom: 32px; color: var(--ink); }}
+h2 {{ margin-top: 36px; font-size: 1.3rem; font-weight: 600; letter-spacing: -0.5px; color: var(--ink); }}
+a {{ color: var(--ink); text-underline-offset: 4px; transition: opacity 0.2s; }}
+a:hover {{ opacity: 0.75; }}
+p, li {{ color: var(--sub); margin-bottom: 16px; }}
+ul {{ padding-left: 20px; }}
+.cl-item {{ margin-bottom: 24px; padding: 24px; background: var(--card-bg); border: 1px solid var(--line); border-radius: 12px; transition: border-color 0.2s; }}
+.cl-item h2 {{ margin-top: 0; margin-bottom: 12px; font-size: 1.3rem; }}
+.cl-item p {{ margin-bottom: 0; font-size: 0.95rem; line-height: 1.6; color: var(--sub); }}
+.footer-logo {{ margin-top: 64px; color: var(--sub); font-size: 0.9rem; }}
+.footer-logo a {{ color: var(--ink); text-decoration: none; font-weight: 500; }}
+.footer-logo a:hover {{ text-decoration: underline; }}
+.back-link {{ color: var(--sub); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }}
+.back-link:hover {{ color: var(--ink); }}
+.theme-btn {{
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: 99px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}}
+.theme-btn:hover {{ background: rgba(255,255,255,0.12); transform: scale(1.04); }}
+body.light-mode .theme-btn {{ background: rgba(0,0,0,0.06); border-color: var(--line); color: var(--ink); }}
+body.light-mode .theme-btn:hover {{ background: rgba(0,0,0,0.1); }}
+.theme-icon {{ display: inline-flex; align-items: center; justify-content: center; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }}
+.theme-btn:active .theme-icon {{ transform: rotate(180deg) scale(0.85); }}
+::selection {{ background: var(--ink); color: var(--bg); }}
 </style></head>
-<body><h1>{title}</h1>{body}
+<body>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+  <a href="/" class="back-link">← Back to SoNex</a>
+  <button id="themeToggle" class="theme-btn" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+    <span class="theme-icon moon-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </span>
+    <span class="theme-icon sun-icon" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+    </span>
+    <span id="themeLabel">Dark</span>
+  </button>
+</div>
+<h1>{title}</h1>{body}
 <p class="footer-logo">A product of <a href="https://patienceai.in">Patience AI</a></p>
-<div style="margin-top:32px"><a href="/" style="color:#666;text-decoration:none;font-size:0.9rem">← Back to SoNex</a></div>
+<script>
+function toggleTheme() {{
+  const isLight = document.body.classList.toggle('light-mode');
+  localStorage.setItem('sonex-theme', isLight ? 'light' : 'dark');
+  updateThemeUI(isLight);
+}}
+function updateThemeUI(isLight) {{
+  const moon = document.querySelector('.moon-icon');
+  const sun = document.querySelector('.sun-icon');
+  const label = document.getElementById('themeLabel');
+  if (moon && sun && label) {{
+    moon.style.display = isLight ? 'none' : 'inline-flex';
+    sun.style.display = isLight ? 'inline-flex' : 'none';
+    label.textContent = isLight ? 'Light' : 'Dark';
+  }}
+}}
+(function(){{
+  if (localStorage.getItem('sonex-theme') === 'light') {{
+    document.body.classList.add('light-mode');
+    updateThemeUI(true);
+  }}
+}})();
+</script>
 </body></html>"""
 
 
@@ -766,9 +871,9 @@ async def changelog():
     )
     pager = """
 <div id="pager" style="display:flex;gap:12px;align-items:center;margin-top:26px">
- <button id="prev" style="padding:9px 18px;border-radius:9px;border:1.5px solid #7C4DFF;background:#fff;color:#7C4DFF;cursor:pointer">← Newer</button>
- <span id="pinfo" style="color:#5f6368;font-size:.9rem"></span>
- <button id="next" style="padding:9px 18px;border-radius:9px;border:1.5px solid #7C4DFF;background:#fff;color:#7C4DFF;cursor:pointer">Older →</button>
+ <button id="prev" class="theme-btn" style="padding:8px 16px;">← Newer</button>
+ <span id="pinfo" style="color:var(--sub);font-size:.9rem"></span>
+ <button id="next" class="theme-btn" style="padding:8px 16px;">Older →</button>
 </div>
 <script>
 const PER=5,items=[...document.querySelectorAll('.cl-item')];let page=0;
