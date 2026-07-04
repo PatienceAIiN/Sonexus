@@ -453,13 +453,13 @@ async function startListening(){
  const mute=audioCtx.createGain();mute.gain.value=0;
  src.connect(proc);proc.connect(mute);mute.connect(audioCtx.destination);
  applySink();_labelsUnlocked=true;refreshDevices();showUsing(); // labels unlocked; honour output & show what's in use
- const step=Math.max(1,Math.round(audioCtx.sampleRate/16000)); // decimate to true 16 kHz
+ const dec=Math.max(1,Math.round(audioCtx.sampleRate/16000)); // decimation factor to true 16 kHz
  proc.onaudioprocess=e=>{
   const b=e.inputBuffer.getChannelData(0);
-  // Take every step-th sample => a real 16 kHz signal, so ZCR matches the phone
+  // Take every dec-th sample => a real 16 kHz signal, so ZCR matches the phone
   // exactly and a steady cooler's jitter is NOT amplified (was the false "Talking").
   let sum=0,cross=0,cnt=0,prev=0;
-  for(let i=0;i<b.length;i+=step){const v=b[i];sum+=v*v;if(cnt&&((v>=0)!==(prev>=0)))cross++;prev=v;cnt++}
+  for(let i=0;i<b.length;i+=dec){const v=b[i];sum+=v*v;if(cnt&&((v>=0)!==(prev>=0)))cross++;prev=v;cnt++}
   const rms=Math.sqrt(sum/cnt);db=rms>0?20*Math.log10(rms):-100;
   const zcr=cross/cnt,speech=zcr>=0.05&&zcr<=0.35,whisper=zcr>=0.12&&zcr<=0.55;
   const sw=swing(db),fx=zflux(zcr); // compute once; share with model + heuristic
