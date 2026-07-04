@@ -207,7 +207,6 @@ __GSV__
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
-    <span class="btn secondary" style="opacity:0.6;cursor:default">✨ SoNex Web coming soon</span>
   </div>
 </div>
 <section id="features">
