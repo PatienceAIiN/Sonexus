@@ -118,10 +118,11 @@ class ListeningService : Service() {
     private fun buildClassifier(cal: Calibration): FrameClassifier {
         val store = ModelStore(this)
         val fallback = HeuristicClassifier(cal)
-        val vad = store.verifiedFile("vad")
-        val sound = store.verifiedFile("sound")
-        if (vad != null || sound != null) return MlClassifier(vad, sound, cal, fallback)
-        // No native model? Use the OTA-trained lightweight model if we have one.
+        // Deterministic heuristic is the trusted base. The OTA-trained model runs
+        // on top as a PRECISION VETO (it only cancels false "Talking", never
+        // invents speech) so accuracy self-improves without destabilising. Silero
+        // (vad) is intentionally not in the decision — it was false-firing speech
+        // on machine/vehicle noise and blocking the learning loop.
         store.verifiedFile("lite")?.let { return LiteClassifier(it, cal, fallback) }
         return fallback
     }
@@ -196,6 +197,17 @@ class ListeningService : Service() {
 
     private fun onState(state: RoomState, db: Double) {
         lastRoomState = state
+        // Same-device media guard: if THIS phone is playing media (reels/music),
+        // the mic mostly hears its own speaker — don't fight your own audio. Hold
+        // volume normal instead of ducking it. (A paired TV over LAN isn't local,
+        // so it still ducks for real conversation.)
+        if (audio.isMusicActive() && !callActive) {
+            stateFlow.value = RoomState.QUIET to db
+            actionLabel.value = "Your media is playing — volume normal"
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .notify(1, buildNotification(RoomState.QUIET))
+            return
+        }
         // During a call the room is forced-ducked; ignore engine-driven restores.
         if (callActive && state == RoomState.QUIET) return
         stateFlow.value = state to db

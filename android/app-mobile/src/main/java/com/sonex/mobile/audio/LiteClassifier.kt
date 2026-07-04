@@ -41,13 +41,21 @@ class LiteClassifier(
     private val minConfidence = 0.45
 
     override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
-        val m = model ?: return fallback.classify(buf, n, db)
+        // The deterministic heuristic decides everything (and keeps its trackers
+        // warm). It correctly sends loud non-speech -> boost, ambient -> quiet.
+        val h = fallback.classify(buf, n, db)
+        val m = model ?: return h
+        // The trained model ONLY refines a "Talking" call: if it confidently says
+        // this frame is NOT speech, cancel the false positive. It can never invent
+        // speech, so a cooler/vehicle can't become "Talking". More clips = fewer
+        // false positives over time (that's the self-improvement).
+        if (h != FrameKind.SPEECH) return h
         val rmsOverFloor = db - floorTracker.update(db)
         val zcr = Dsp.zeroCrossingRate(buf, n)
         val (label, prob) = m.predict(rmsOverFloor, zcr, modulation.update(db), zcrFlux.update(zcr))
-        if (prob < minConfidence) return fallback.classify(buf, n, db)
-        // Whisper removed: any whisper label collapses to QUIET (hold).
         val kind = LinearVad.labelToKind(label)
-        return if (kind == FrameKind.WHISPER || kind == FrameKind.WHISPER_GROUP) FrameKind.QUIET else kind
+        return if (prob >= minConfidence && kind != FrameKind.SPEECH)
+            (if (kind == FrameKind.NOISE) FrameKind.NOISE else FrameKind.QUIET)
+        else FrameKind.SPEECH
     }
 }
