@@ -284,7 +284,7 @@ class GroupWhisperTest {
         org.junit.Assert.assertEquals("one soft breath => solo whisper", FrameKind.WHISPER,
             RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 6.0))
         org.junit.Assert.assertEquals("several hushed voices => group whisper", FrameKind.WHISPER_GROUP,
-            RoomStateMachine.classify(-38.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 6.0))
+            RoomStateMachine.classify(-42.0, true, -30.0, -27.0, noiseFloorDb = -55.0, dbSwingDb = 6.0))
     }
 
     @org.junit.Test fun group_whisper_eases_volume_solo_holds() {

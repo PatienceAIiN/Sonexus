@@ -10,8 +10,8 @@ enum class FrameKind { SPEECH, NOISE, QUIET, WHISPER, WHISPER_GROUP }
  * frame (a cough, a clink) never toggles the volume.
  */
 class RoomStateMachine(
-    /** Frames of sustained speech/noise before switching (~0.5s at 30ms). */
-    private val talkOnFrames: Int = 17,
+    /** Frames of sustained speech/noise before switching (~0.3s at 30ms) — snappy. */
+    private val talkOnFrames: Int = 10,
     /** Frames of sustained quiet before restoring. */
     private val quietOffFrames: Int
 ) {
@@ -90,6 +90,12 @@ class RoomStateMachine(
         /** A whisper this far above the floor is several people, not one —
          *  louder than a lone breath but still below normal speech. */
         const val WHISPER_GROUP_GAP_DB = 6.0
+        /** Floor-relative gates: talking is ~this far above the room's ambient
+         *  floor, machine/boost noise even further. Makes detection self-adapt to
+         *  RAW-mic levels (which are quieter than AGC), so it fires no matter the
+         *  absolute loudness — never "stuck on Listening" next to a loud cooler. */
+        const val TALK_OVER_FLOOR_DB = 14.0
+        const val BOOST_OVER_FLOOR_DB = 22.0
 
         fun classify(
             db: Double,
@@ -108,6 +114,12 @@ class RoomStateMachine(
             zcrFluxRatio: Double = 0.0
         ): FrameKind {
             val effectiveTrigger = if (inSpeechState) trigger - hysteresisDb else trigger
+            // Cap the gates relative to the live floor so quiet RAW-mic audio still
+            // crosses them (min => never LESS sensitive than the calibration).
+            val talkGate = if (noiseFloorDb != null)
+                minOf(effectiveTrigger, noiseFloorDb + TALK_OVER_FLOOR_DB) else effectiveTrigger
+            val boostGate = if (noiseFloorDb != null)
+                minOf(boostTrigger, noiseFloorDb + BOOST_OVER_FLOOR_DB) else boostTrigger
             // A cooler/fan/motor can mimic speech's zero-crossing band, but it
             // holds a near-constant level. Steady => interference noise:
             // BOOST over it, never duck for it.
@@ -121,16 +133,16 @@ class RoomStateMachine(
             // "I whispered but it showed Talking". It never becomes SPEECH.
             val unvoicedBreath = whisperShaped && !speechShaped && !steady
             return when {
-                db > effectiveTrigger && talksLikeAPerson -> FrameKind.SPEECH
+                db > talkGate && talksLikeAPerson -> FrameKind.SPEECH
                 // Machine noise only — a breathy whisper must NOT be boosted as noise.
-                db > boostTrigger && ((!speechShaped && !whisperShaped) || steady) -> FrameKind.NOISE
+                db > boostGate && ((!speechShaped && !whisperShaped) || steady) -> FrameKind.NOISE
                 // Whisper band: breathy-shaped + slightly modulated (a flat hum
                 // isn't a person). Soft whispers sit below the trigger; a loud
                 // *unvoiced* whisper is allowed above it too. The louder it is,
                 // the more it's several people => group whisper (gentle duck).
                 whisperShaped && dbSwingDb >= ModulationTracker.MIN_WHISPER_SWING_DB &&
                     noiseFloorDb != null && db > noiseFloorDb + WHISPER_MARGIN_DB &&
-                    (db <= effectiveTrigger || unvoicedBreath) ->
+                    (db <= talkGate || unvoicedBreath) ->
                     if (db >= noiseFloorDb + WHISPER_MARGIN_DB + WHISPER_GROUP_GAP_DB)
                         FrameKind.WHISPER_GROUP else FrameKind.WHISPER
                 else -> FrameKind.QUIET

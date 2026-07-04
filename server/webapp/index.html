@@ -317,13 +317,13 @@ const STEADY_SWING=5,MIN_WHISPER_SWING=2.5,WHISPER_GROUP_GAP=6,SPEECH_FLUX=0.04;
 // ZCR-flux ring: masking-robust speech cue (a talker's ZCR fluctuates even when
 // a loud steady machine hides the level). p90-p10 spread of recent ZCRs.
 const zring=[];function zflux(zcr){zring.push(zcr);if(zring.length>34)zring.shift();
- if(zring.length<10)return 0;const s=[...zring].sort((a,b)=>a-b);
+ if(zring.length<6)return 0;const s=[...zring].sort((a,b)=>a-b);
  return s[Math.max(0,Math.floor(s.length*0.9)-1)]-s[Math.floor(s.length*0.1)]}
 let listening=false,audioCtx=null,stream=null,state="QUIET",db=-60,inSpeech=false;
-let talkS=0,quietS=0,boostS=0,whisS=0,whisGS=0;const TALK_ON=34,QUIET_OFF=200;
+let talkS=0,quietS=0,boostS=0,whisS=0,whisGS=0;const TALK_ON=20,QUIET_OFF=200; // snappier (~0.3s)
 const cal={floor:-55,trigger:-30,boost:-27,shift:0};
 const ring=[];function swing(db){ring.push(db);if(ring.length>34)ring.shift();
- if(ring.length<10)return 99;const s2=[...ring].sort((a,b)=>a-b); // report early
+ if(ring.length<6)return 99;const s2=[...ring].sort((a,b)=>a-b); // report early
  return s2[Math.max(0,Math.floor(s2.length*0.9)-1)]-s2[Math.floor(s2.length*0.1)]}
 // speechShaped = voiced ZCR band; whisperShaped = wider unvoiced band (breath).
 // The OTA-trained model (same one the phone uses). Self-improves over time; the
@@ -350,18 +350,19 @@ function classify(db,speechShaped,whisperShaped,sw,fx){
  const trig=cal.trigger+cal.shift-(inSpeech?3:0); // enter high, exit low
  if(sw===undefined)sw=swing(db);
  fx=fx||0;
- // Steady level = machinery (cooler/fan). But a person is voice-shaped AND CHANGING
- // — in level OR in ZCR — so talking cuts through even a loud steady machine.
+ // Floor-relative gates: talking ~14 dB over ambient, machine/boost ~22 dB — so
+ // detection self-adapts to raw-mic levels and never sits stuck on "Listening".
+ const floor=cal.floor+cal.shift;
+ const talkGate=Math.min(trig,floor+14), boostGate=Math.min(cal.boost+cal.shift,floor+22);
+ // Steady level = machinery. But a person is voice-shaped AND CHANGING — in level
+ // OR in ZCR — so talking cuts through even a loud steady machine.
  const steady=sw<STEADY_SWING, changing=!steady||fx>=SPEECH_FLUX;
  const person=speechShaped&&changing;
- // Clearly unvoiced breath = a whisper even when loud (stops "whisper => Talking").
  const breath=whisperShaped&&!speechShaped&&!steady;
- if(db>trig&&person)return"SPEECH";
- if(db>cal.boost+cal.shift&&((!speechShaped&&!whisperShaped)||steady))return"NOISE";
- // Whisper band: breathy + softly modulated. Loud unvoiced whisper allowed above
- // the trigger too; louder = several people => group whisper.
- if(whisperShaped&&sw>=MIN_WHISPER_SWING&&db>cal.floor+cal.shift+6&&(db<=trig||breath))
-  return db>=cal.floor+cal.shift+6+WHISPER_GROUP_GAP?"WHISPER_GROUP":"WHISPER";
+ if(db>talkGate&&person)return"SPEECH";
+ if(db>boostGate&&((!speechShaped&&!whisperShaped)||steady))return"NOISE";
+ if(whisperShaped&&sw>=MIN_WHISPER_SWING&&db>floor+6&&(db<=talkGate||breath))
+  return db>=floor+6+WHISPER_GROUP_GAP?"WHISPER_GROUP":"WHISPER";
  return"QUIET"}
 function observe(db,k){ // adaptive floor, capped so a silent night can't oversensitise
  if(k!=="QUIET"||db>cal.floor+12)return;

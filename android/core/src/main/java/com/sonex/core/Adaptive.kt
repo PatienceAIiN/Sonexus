@@ -206,7 +206,7 @@ class ModulationTracker(private val window: Int = 34) {
         if (ring.size > window) ring.removeFirst()
         // Report early (10 frames ~ 0.3s): the duck decision fires around
         // frame 17, so waiting half the window let machine noise duck first.
-        if (ring.size < 10) return 99.0
+        if (ring.size < 6) return 99.0
         val sorted = ring.sorted()
         return sorted[((sorted.size * 9) / 10 - 1).coerceAtLeast(0)] - sorted[sorted.size / 10]
     }
@@ -233,7 +233,7 @@ class ZcrTracker(private val window: Int = 34) {
     fun update(zcr: Double): Double {
         ring.addLast(zcr)
         if (ring.size > window) ring.removeFirst()
-        if (ring.size < 10) return 0.0 // warming up: don't claim speech yet
+        if (ring.size < 6) return 0.0 // warming up: don't claim speech yet
         val sorted = ring.sorted()
         return sorted[((sorted.size * 9) / 10 - 1).coerceAtLeast(0)] - sorted[sorted.size / 10]
     }
