@@ -22,11 +22,14 @@ RELEASES_KEY = "apk/releases.json"
 
 def _base(request: Request) -> str:
     """Canonical origin for SEO links: SITE_URL env wins, else the host the
-    request actually arrived on (custom domain aware via the proxy header)."""
+    request actually arrived on (custom domain aware via proxy header)."""
     if settings.site_url:
         return settings.site_url.rstrip("/")
-    host = request.headers.get("x-forwarded-host") or request.url.hostname or "sonex.patienceai.in"
-    return f"https://{host}"
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.hostname or "sonex.patienceai.in"
+    if not host or "127.0.0.1" in host or "localhost" in host:
+        return "https://sonex.patienceai.in"
+    scheme = request.headers.get("x-forwarded-proto", "https")
+    return f"{scheme}://{host}"
 
 
 def _releases() -> dict:
@@ -693,14 +696,22 @@ async def sitemap(request: Request):
     base = _base(request)
     today = date.today().isoformat()
     pages = [("/", "weekly", "1.0"), ("/changelog", "monthly", "0.6"), ("/terms", "yearly", "0.3"), ("/privacy", "yearly", "0.3")]
-    urls = "".join(
-        f"<url><loc>{base}{path}</loc><lastmod>{today}</lastmod>"
-        f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+    urls = "\n".join(
+        f"  <url>\n"
+        f"    <loc>{base}{path}</loc>\n"
+        f"    <lastmod>{today}</lastmod>\n"
+        f"    <changefreq>{freq}</changefreq>\n"
+        f"    <priority>{prio}</priority>\n"
+        f"  </url>"
         for path, freq, prio in pages
     )
-    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
-           f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
-    return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "max-age=3600"})
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f'{urls}\n'
+        '</urlset>'
+    )
+    return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
 
 
 CHANGELOG = [
