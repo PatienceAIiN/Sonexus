@@ -97,7 +97,20 @@ __GSV__
   * { margin:0; box-sizing:border-box; }
   html { scroll-behavior:smooth; }
   body { font-family:'Google Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-         color:var(--ink); background:#fff; line-height:1.6; }
+         color:var(--ink); background:transparent; line-height:1.6; }
+  /* Antigravity-style light animated background: soft drifting colour fields. */
+  .aurora { position:fixed; inset:0; z-index:-1; overflow:hidden; background:#fff; }
+  .aurora b { position:absolute; border-radius:50%; filter:blur(80px); opacity:.45; will-change:transform; }
+  .aurora b:nth-child(1){ width:48vw;height:48vw;left:-10vw;top:-12vw;
+     background:radial-gradient(circle,#7C4DFF66,transparent 70%); animation:drift1 20s ease-in-out infinite; }
+  .aurora b:nth-child(2){ width:42vw;height:42vw;right:-8vw;top:6vw;
+     background:radial-gradient(circle,#2DD4BF66,transparent 70%); animation:drift2 25s ease-in-out infinite; }
+  .aurora b:nth-child(3){ width:40vw;height:40vw;left:28vw;bottom:-16vw;
+     background:radial-gradient(circle,#FF5C7A55,transparent 70%); animation:drift3 30s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(7vw,9vw) scale(1.1)} }
+  @keyframes drift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-8vw,7vw) scale(1.05)} }
+  @keyframes drift3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(5vw,-9vw) scale(1.08)} }
+  @media(prefers-reduced-motion:reduce){ .aurora b{animation:none} }
   nav { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:28px;
         padding:14px 6vw; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
         border-bottom:1px solid var(--line); }
@@ -168,6 +181,7 @@ __GSV__
     footer { flex-direction:column; text-align:center; }
   }
 </style></head><body>
+<div class="aurora"><b></b><b></b><b></b></div>
 <nav>
   <span class="logo">SoNex</span>
   <a href="#features">Features</a><a href="#how">How it works</a><a href="#download" onclick="openDl(event)">Download</a><a href="#" onclick="return openContact(event)">Contact</a>
@@ -175,7 +189,7 @@ __GSV__
 <div class="hero">
   <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
   <div class="rotator" id="rotator"><span class="show">The volume that listens back.</span></div>
-  <p class="sub">On-device AI · Private by default</p>
+  <p class="sub">Adaptive volume that hears the room — on-device AI, private by default.</p>
   <div class="cta" id="download" style="position:relative">
     <button class="btn primary" onclick="dd.style.display=dd.style.display==='block'?'none':'block'">
       <span id="platicon">__ANDROID__</span> Download <span style="font-size:.8em">▾</span>
@@ -193,7 +207,7 @@ __GSV__
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
-    <a class="btn web" href="/app/">✨ Open in browser ›</a>
+    <a class="btn web" href="/app/">✨ Try it free in your browser ›</a>
   </div>
 </div>
 <section id="features">
