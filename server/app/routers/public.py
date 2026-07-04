@@ -436,14 +436,14 @@ __GSV__
     <a class="ddi" href="/download/mobile" style="margin-bottom:8px;">
       <div>
         <div style="font-weight:600;">Android Phone / Mobile</div>
-        <div style="font-size:0.8rem; color:var(--sub);">Handheld devices (v__VER__)</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Handheld devices (v5.0)</div>
       </div>
       <span class="tag">arm64 APK</span>
     </a>
     <a class="ddi" href="/download/tv" style="margin-bottom:16px;">
       <div>
         <div style="font-weight:600;">Android TV</div>
-        <div style="font-size:0.8rem; color:var(--sub);">Smart TVs & Streaming Sticks</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Smart TVs & Streaming Sticks (v5.0)</div>
       </div>
       <span class="tag">TV APK</span>
     </a>
