@@ -41,7 +41,9 @@ class MlClassifier(
     private val adapter = ThresholdAdapter(
         ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
     )
-    private val smoother = SpeechProbSmoother()
+    // Sensitive enough for mild gossip; false positives are held off by the
+    // floor-relative dB gate + the heuristic machine-veto in classify().
+    private val smoother = SpeechProbSmoother(onThreshold = 0.6, offThreshold = 0.35, hangoverWindows = 6)
     private var vadSeen = false
     private val floorTracker = com.sonex.core.FloorTracker()
 
@@ -85,8 +87,11 @@ class MlClassifier(
             // it. Everything that is NOT confident speech is handed to the proven
             // heuristic (quiet / machine-boost), which avoids boosting on media.
             val talkGate = minOf(adapter.trigger, floor + com.sonex.core.RoomStateMachine.TALK_OVER_FLOOR_DB)
-            if (vadSeen && smoother.speaking && db > talkGate) FrameKind.SPEECH
-            else fallback.classify(buf, n, db)
+            // Always run the heuristic (keeps its floor/shape trackers warm and
+            // lets it VETO a machine the VAD misread as speech).
+            val heur = fallback.classify(buf, n, db)
+            if (vadSeen && smoother.speaking && db > talkGate && heur != FrameKind.NOISE) FrameKind.SPEECH
+            else heur
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
             broken = true

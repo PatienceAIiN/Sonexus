@@ -357,7 +357,7 @@ function classify(db,speechShaped,whisperShaped,sw,fx){
  // Floor-relative gates: talking ~14 dB over ambient, machine/boost ~22 dB — so
  // detection self-adapts to raw-mic levels and never sits stuck on "Listening".
  const floor=cal.floor+cal.shift;
- const talkGate=Math.min(trig,floor+14), boostGate=Math.min(cal.boost+cal.shift,floor+22);
+ const talkGate=Math.min(trig,floor+10), boostGate=Math.min(cal.boost+cal.shift,floor+22);
  // Steady level = machinery. But a person is voice-shaped AND CHANGING — in level
  // OR in ZCR — so talking cuts through even a loud steady machine.
  const steady=sw<STEADY_SWING, changing=!steady||fx>=SPEECH_FLUX;

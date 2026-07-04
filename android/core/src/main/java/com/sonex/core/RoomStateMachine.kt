@@ -94,7 +94,7 @@ class RoomStateMachine(
          *  floor, machine/boost noise even further. Makes detection self-adapt to
          *  RAW-mic levels (which are quieter than AGC), so it fires no matter the
          *  absolute loudness — never "stuck on Listening" next to a loud cooler. */
-        const val TALK_OVER_FLOOR_DB = 14.0
+        const val TALK_OVER_FLOOR_DB = 10.0   // mild gossip is ~10 dB over ambient, not 14
         const val BOOST_OVER_FLOOR_DB = 22.0
         /** A whisper/murmur fluctuates in ZCR (breath vs. consonants); a steady
          *  cooler/fan does not. Below this ZCR-flux it's a machine, not a person. */

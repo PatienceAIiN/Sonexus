@@ -11,8 +11,8 @@ android {
         applicationId = "com.sonex.tv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 34
-        versionName = "4.4"
+        versionCode = 35
+        versionName = "4.5"
     }
     buildFeatures { compose = true }
     compileOptions {
