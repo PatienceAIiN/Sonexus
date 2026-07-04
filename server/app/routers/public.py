@@ -387,6 +387,12 @@ async def landing(request: Request):
             .replace("__VER__", ver or "latest"))
 
 
+@router.get("/app", response_class=HTMLResponse)
+@router.get("/app/", response_class=HTMLResponse)
+async def app_coming_soon():
+    return _legal_page("SoNex Web", "<p>SoNex Web is an upcoming feature. Stay tuned!</p>")
+
+
 @router.get("/robots.txt", response_class=PlainTextResponse)
 async def robots(request: Request):
     return f"User-agent: *\nAllow: /\nSitemap: {_base(request)}/sitemap.xml\n"
