@@ -36,6 +36,15 @@ class MlClassifier(
         /** Tiny margin over ambient so Silero's near-silence jitter isn't "voice".
          *  NOT a loudness gate — real speech clears this by a mile. */
         private const val VOICE_OVER_FLOOR_DB = 6.0
+        /** Voiced-speech zero-crossing band (matches Dsp.isSpeechShaped). Airflow
+         *  and hiss ride ABOVE 0.35; steady hum sits BELOW 0.05 — both fail this,
+         *  voiced speech passes. This alone rejects the reported cooler/fan case. */
+        private const val VOICED_ZCR_LO = 0.05
+        private const val VOICED_ZCR_HI = 0.35
+        /** Peak normalized autocorrelation above which a sound is periodic (voiced).
+         *  Voiced vowels score 0.6-0.9; airflow/hiss/road noise are aperiodic and
+         *  fall well below. Conservative so soft/distant gossip still passes. */
+        private const val HARMONIC_MIN = 0.30
     }
 
     private var broken = false
@@ -88,16 +97,32 @@ class MlClassifier(
             fallback.classify(buf, n, db)       // keep heuristic trackers warm
             val floor = floorTracker.update(db) // robust ambient, every frame
             val steady = modulation.update(db) < com.sonex.core.ModulationTracker.STEADY_SWING_DB
-            // TYPE-BASED, not level-based:
-            //  - human VOICE (Silero) that PULSES (not a steady machine)  -> SPEECH (duck), any loudness
-            //  - no voice but clearly loud                                -> NOISE  (boost: machine/vehicle)
-            //  - otherwise                                                -> QUIET
-            // Human+machine => voice is present => SPEECH (human wins).
-            val voice = vadSeen && smoother.speaking && !steady && db > floor + VOICE_OVER_FLOOR_DB
+
+            // TYPE-BASED, not level-based. SPEECH now requires SEVERAL INDEPENDENT
+            // voice cues to AGREE, so broadband airflow/hiss that fools ONE model
+            // (Silero has been seen to false-fire on a running cooler) can't fool
+            // all of them:
+            //  (1) Silero temporal VAD says "speaking" (smoothed + hangover)
+            val vadSpeaking = vadSeen && smoother.speaking
+            //  (2) spectral shape is voiced (mid-band ZCR) — not hiss/hum/airflow
+            val zcr = com.sonex.core.Dsp.zeroCrossingRate(buf, n)
+            val voicedShape = zcr in VOICED_ZCR_LO..VOICED_ZCR_HI
+            //  (3) YAMNet's dominant AudioSet class is human-voice. null (not yet
+            //      warmed up) does NOT veto — only an explicit non-speech verdict
+            //      does, so real early speech is never blocked at cold start.
+            val soundSaysSpeech = lastSoundIsSpeech != false
+            //  (4) level PULSES like syllables, not a flat machine (!steady), and
+            //      (5) clears a tiny floor margin so near-silence jitter isn't voice.
+            val aboveFloor = db > floor + VOICE_OVER_FLOOR_DB
+            //  (6) periodic like a voice (harmonic) — the cue airflow CAN'T fake.
+            //      Computed last (&&-short-circuit) so it only runs when it matters.
+            val voice = vadSpeaking && voicedShape && soundSaysSpeech && !steady && aboveFloor &&
+                com.sonex.core.Dsp.harmonicity(buf, n) >= HARMONIC_MIN
+
             val loud = db > floor + com.sonex.core.RoomStateMachine.BOOST_OVER_FLOOR_DB
             when {
-                voice -> FrameKind.SPEECH
-                loud -> FrameKind.NOISE
+                voice -> FrameKind.SPEECH   // a real person -> duck
+                loud -> FrameKind.NOISE     // loud non-voice -> boost (machine/vehicle)
                 else -> FrameKind.QUIET
             }
         } catch (t: Throwable) {

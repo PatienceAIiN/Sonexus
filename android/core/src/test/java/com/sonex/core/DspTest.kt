@@ -64,4 +64,28 @@ class DspTest {
         // 6kHz "hiss" => ZCR = 0.75, above the speech band.
         assertFalse(Dsp.isSpeechShaped(sine(6000.0, 480, 0.5)))
     }
+
+    // ---- harmonicity: the cue a fan/cooler physically cannot fake ----
+
+    @Test fun voiced_pitch_is_harmonic() {
+        // 150Hz glottal-range tone => strong self-correlation at its period lag.
+        assertTrue("a voiced pitch must score harmonic", Dsp.harmonicity(sine(150.0, 480, 0.5)) > 0.3)
+    }
+
+    @Test fun white_noise_is_not_harmonic() {
+        // Broadband airflow/hiss is aperiodic => near-zero autocorrelation peak.
+        val rnd = java.util.Random(42)
+        val noise = ShortArray(480) { (rnd.nextGaussian() * 8000).toInt().toShort() }
+        assertTrue("broadband noise must NOT read as harmonic", Dsp.harmonicity(noise) < 0.3)
+    }
+
+    @Test fun silence_has_no_harmonicity() {
+        assertEquals(0.0, Dsp.harmonicity(ShortArray(480)), 0.0001)
+    }
+
+    @Test fun voiced_tone_beats_noise_on_harmonicity() {
+        val rnd = java.util.Random(7)
+        val noise = ShortArray(480) { (rnd.nextGaussian() * 8000).toInt().toShort() }
+        assertTrue(Dsp.harmonicity(sine(150.0, 480, 0.5)) > Dsp.harmonicity(noise))
+    }
 }

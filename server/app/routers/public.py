@@ -192,7 +192,7 @@ __GSV__
   <p class="sub">Adaptive volume that hears the room — on-device AI, private by default.</p>
   <div class="cta" id="download" style="position:relative">
     <button class="btn primary" onclick="dd.style.display=dd.style.display==='block'?'none':'block'">
-      <span id="platicon">__ANDROID__</span> Download <span style="font-size:.8em">▾</span>
+      <span id="platicon">__ANDROID__</span> Download v__VER__ <span style="font-size:.8em">▾</span>
     </button>
     <div id="dd" style="display:none;position:absolute;top:110%;left:50%;transform:translateX(-50%);
       background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(32,33,36,.14);
@@ -207,7 +207,7 @@ __GSV__
       <div style="font-size:.7rem;color:var(--sub);padding:6px 10px">Enable "install unknown apps" to sideload APKs.
       On Android TV use a file manager or "Send files to TV".</div>
     </div>
-    <a class="btn web" href="/app/">✨ Try it free in your browser ›</a>
+    <span class="btn secondary" style="opacity:0.6;cursor:default">✨ SoNex Web coming soon</span>
   </div>
 </div>
 <section id="features">
@@ -411,6 +411,15 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("5.0", "Two big reliability fixes. First: the app could get stuck showing 'Ready' and never actually start after you pressed Start — it now always begins listening the moment you tap Start, on every phone. Second — and most importantly — SoNex no longer shows 'Talking' when no one is speaking. Deciding 'is this a real person?' now needs several independent signs of a human voice to agree at once: live voice activity, a voiced pitch you can hear the harmonics of, the natural rise-and-fall of speech, and the sound's type — so a running cooler, fan, airflow or hiss can fool one of them but never all of them. Real talking still lowers your media instantly, machines and vehicles raise it, and a stray blip can no longer trip the room into a stuck 'Talking'. Applies to the phone app; SoNex Web already uses the same neural voice detection."),
+    ("4.9", "Fixed the app sometimes showing only 'Ready' and not starting on certain phones — it now falls back to a working microphone automatically. Added a microphone picker so you can choose which mic to listen with, and a dashboard card that shows how much SoNex has improved itself over time, with the models and data behind it."),
+    ("4.8", "Detection now decides by the TYPE of sound — a real human voice versus a steady machine — instead of guessing from how loud it is. Talking ducks your media at any volume; a cooler, fan or motor raises it."),
+    ("4.7", "Big cut in false 'Talking'. SoNex also stops fighting your own phone's audio: when you're watching reels or playing music on the same phone, it hears its own speaker and keeps the volume normal instead of ducking it."),
+    ("4.6", "Fixed a running cooler being mistaken for someone talking, and made detection sharpen faster when you reopen the app. Added a plain-language note about the brief moment SoNex takes to learn your room."),
+    ("4.5", "Catches soft, mild conversation and gentle gossip — not just loud talking — while removing a flicker that briefly false-triggered on the phone."),
+    ("4.4", "Sharper detection on the phone using the neural voice model, which now adapts to your room's actual sound level. A one-time, clearly-shown download fetches the model the first time."),
+    ("4.3", "Fixed 'detects first, then stops': during a long conversation or with a cooler running, SoNex could pick up the sound and then fall silent — it now keeps tracking the whole time."),
+    ("4.2", "Stability: steadier moment-to-moment tracking of your room's sound level, and a simpler, more reliable three-way read of the room (quiet, talking, or loud)."),
     ("4.1", "Fixed SoNex Web missing your voice (stuck on 'Listening') when a mic runs quiet — common in browsers. It now automatically calibrates to your microphone's actual level within a second or two, so talking is detected and media reacts even with a loud cooler in the background, matching the phone app."),
     ("4.0", "No more false 'Whispering' from machines. A cooler or fan is breathy like a whisper, so SoNex could mistake it for someone whispering — now it also checks the natural flutter of a human voice (the rapid change between breaths and consonants) that machines don't have. So Whispering shows only for a real human whisper or murmur (one person or several), and steady machines are left as background. Fixed on both the phone app and SoNex Web."),
     ("3.9", "Fixed SoNex Web falsely showing 'Talking' when only a cooler or fan was running — it now matches the phone and only says Talking for real human speech. Reacts almost instantly and no longer sits idle in a noisy room. Two fixes: SoNex now responds about twice as fast (roughly a third of a second) so the status, ducking, muting and pausing change right as things happen; and detection adapts to your room's actual sound level, so a loud cooler or a nearby conversation is picked up straight away instead of staying on 'Listening'. Works on the phone app and SoNex Web."),

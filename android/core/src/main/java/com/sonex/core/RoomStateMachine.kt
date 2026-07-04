@@ -39,7 +39,15 @@ class RoomStateMachine(
         fun leak(score: Int, hit: Boolean, cap: Int) =
             if (hit) minOf(cap, score + 2) else maxOf(0, score - 1)
 
-        talkScore = leak(talkScore, kind == FrameKind.SPEECH, talkOn)
+        // Talking must be a genuine MAJORITY of frames, not a 1/3 trickle. The
+        // plain +2/-1 leak drifts UP for any speech fraction over 1/3, so a sparse
+        // false-SPEECH source (e.g. a cooler Silero occasionally mis-hears) would
+        // latch TALKING forever. +2 up keeps the ~0.3s time-to-trigger (10
+        // consecutive SPEECH still fires); -2 down pushes the sustain break-even
+        // to ~50% real-speech density. Isolated to talkScore so boost/quiet
+        // restore stay lenient.
+        talkScore = if (kind == FrameKind.SPEECH)
+            minOf(talkOn, talkScore + 2) else maxOf(0, talkScore - 2)
         boostScore = leak(boostScore, kind == FrameKind.NOISE, talkOn)
         // People-first: a talking frame drains the boost score harder than a plain
         // miss, so a conversation cuts THROUGH a running cooler/fan (which would

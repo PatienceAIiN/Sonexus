@@ -58,6 +58,15 @@ class RoomStateMachineTest {
         assertTrue("realistic speech cadence must duck within ~2s", flipped)
     }
 
+    @Test fun one_third_false_speech_never_latches_talking() {
+        // The old +2/-1 leak drifted UP for any speech fraction over 1/3, so a
+        // sparse false-SPEECH source (a cooler Silero occasionally mis-hears)
+        // latched TALKING forever. With +2/-2 it must decay away instead.
+        val m = machine(talkOn = 17, quietOff = 1000)
+        repeat(600) { i -> m.step(if (i % 3 == 0) FrameKind.SPEECH else FrameKind.QUIET) }
+        assertEquals("~33% false SPEECH must NOT hold TALKING", RoomState.QUIET, m.state)
+    }
+
     @Test fun restore_survives_occasional_blips_during_quiet() {
         val m = machine(talkOn = 2, quietOff = 30)
         m.step(FrameKind.SPEECH)

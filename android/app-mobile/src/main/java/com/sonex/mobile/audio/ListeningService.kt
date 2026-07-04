@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.sonex.core.RoomState
@@ -70,36 +71,50 @@ class ListeningService : Service() {
     override fun onCreate() {
         super.onCreate()
         audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        pairing = PairingClient(this)
+        // Go foreground IMMEDIATELY (Android 14 kills a mic FGS that doesn't) and
+        // mark running right away, so the UI shows "listening" and NOTHING below
+        // can leave us stuck on "Ready". Every optional part is fault-isolated.
+        startForegroundSafely()
+        running.value = true
 
+        pairing = PairingClient(this)
         router = OutputRouter(
             ruleFor = { id -> Prefs.targetRule(this, id) },
             duckPercent = { Prefs.duckLevel(this) }
         ).apply {
-            register(PhoneSpeakerTarget(audio))
-            register(BluetoothTarget(audio))
-            register(WiredHeadsetTarget(audio))
-            register(TvTarget(pairing!!))
-            register(CastTarget(this@ListeningService))
+            runCatching { register(PhoneSpeakerTarget(audio)) }
+            runCatching { register(BluetoothTarget(audio)) }
+            runCatching { register(WiredHeadsetTarget(audio)) }
+            runCatching { pairing?.let { register(TvTarget(it)) } }
+            // Cast needs Play Services — can throw on some devices; must not abort.
+            runCatching { register(CastTarget(this@ListeningService)) }
         }
 
-        // Re-resolve the TV's LAN address; DHCP may have moved it since pairing.
-        scope.launch { pairing?.discover() }
-        // OTA model check (cheap no-op if unchanged).
+        scope.launch { runCatching { pairing?.discover() } }
         scope.launch {
-            val url = Prefs.serverUrl(this@ListeningService) ?: return@launch
-            val key = Prefs.deviceKey(this@ListeningService) ?: return@launch
-            val id = Prefs.deviceId(this@ListeningService) ?: return@launch
-            ModelStore(this@ListeningService).sync(url, key, id)
+            runCatching {
+                val url = Prefs.serverUrl(this@ListeningService) ?: return@launch
+                val key = Prefs.deviceKey(this@ListeningService) ?: return@launch
+                val id = Prefs.deviceId(this@ListeningService) ?: return@launch
+                ModelStore(this@ListeningService).sync(url, key, id)
+            }
         }
+        runCatching { callMonitor = CallMonitor(this) { active -> onCallState(active) }.also { it.start() } }
+    }
 
-        callMonitor = CallMonitor(this) { active -> onCallState(active) }.also { it.start() }
-        startForeground(1, buildNotification(RoomState.QUIET))
-        running.value = true
+    private fun startForegroundSafely() {
+        val notif = buildNotification(RoomState.QUIET)
+        runCatching {
+            androidx.core.app.ServiceCompat.startForeground(
+                this, 1, notif,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+            )
+        }.onFailure { runCatching { startForeground(1, notif) } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (engine == null) {
+        if (engine == null) runCatching {
             val cal = Prefs.currentCalibration(this)
             val col = ClipCollector(DetectionEngine.SAMPLE_RATE)
             collector = col
@@ -111,7 +126,7 @@ class ListeningService : Service() {
                     it.pcmTap = { b, n -> col.append(b, n) }
                     it.start()
                 }
-        }
+        }.onFailure { android.util.Log.w("SonexSvc", "engine start failed", it) }
         return START_STICKY
     }
 
@@ -253,12 +268,14 @@ class ListeningService : Service() {
         callActive = active
         if (active) {
             stateFlow.value = RoomState.TALKING to stateFlow.value.second
+            actionLabel.value = statusText(RoomState.TALKING)   // "On a call — …"
             scope.launch { router.onState(RoomState.TALKING) }
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .notify(1, buildNotification(RoomState.TALKING))
         } else if (lastRoomState == RoomState.QUIET) {
             // Call over and the room is already quiet => restore now.
             stateFlow.value = RoomState.QUIET to stateFlow.value.second
+            actionLabel.value = statusText(RoomState.QUIET)     // "Listening · mic active"
             scope.launch { router.onState(RoomState.QUIET) }
         } // else: the engine will restore once the room actually goes quiet.
     }
