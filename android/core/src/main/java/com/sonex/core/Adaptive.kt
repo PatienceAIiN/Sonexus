@@ -253,16 +253,20 @@ class ZcrTracker(private val window: Int = 34) {
  * Speech/bark peaks sit above the percentile and don't move it; a steady cooler
  * becomes the floor and speech rides above it.
  */
-class FloorTracker(private val downAlpha: Double = 0.35, private val upAlpha: Double = 0.0015) {
-    private var floor = Double.NaN
+class FloorTracker(private val window: Int = 256, private val pct: Double = 0.10) {
+    private val ring = ArrayDeque<Double>()
 
-    /** Asymmetric envelope follower: falls FAST to the true quiet ambient (trust
-     *  silence), rises only VERY slowly — so sustained talking or a running cooler
-     *  can't drag the floor up and choke off detection ("worked first, then not").
-     *  A permanently louder room still adapts over ~30s. */
+    /** Low percentile of the last ~8s, updated every frame. BOUNDED convergence:
+     *  a newly-started steady source (cooler) becomes the floor within the window
+     *  (~a few seconds), NOT minutes — fixing the long "stuck loud/talking on
+     *  reopen" bug. Intermittent speech has syllable gaps so its low percentile
+     *  stays at the true ambient, so talking still rides above the floor. During
+     *  warm-up it returns the current level so nothing false-triggers. */
     fun update(db: Double): Double {
-        if (floor.isNaN()) { floor = db; return floor }
-        floor += (if (db < floor) downAlpha else upAlpha) * (db - floor)
-        return floor
+        ring.addLast(db)
+        if (ring.size > window) ring.removeFirst()
+        if (ring.size < 16) return db
+        val sorted = ring.sorted()
+        return sorted[(sorted.size * pct).toInt().coerceIn(0, sorted.size - 1)]
     }
 }

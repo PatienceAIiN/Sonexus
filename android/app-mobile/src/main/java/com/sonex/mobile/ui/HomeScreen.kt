@@ -172,6 +172,9 @@ fun HomeScreen(
                             Prefs.setListeningEnabled(ctx, true)
                             Prefs.setAutoStartSuppressed(ctx, false)
                             onEnsureMic()
+                            android.widget.Toast.makeText(ctx,
+                                "Getting used to your room — detection sharpens in a few seconds.",
+                                android.widget.Toast.LENGTH_LONG).show()
                         }
                     },
                     modifier = Modifier.height(48.dp),

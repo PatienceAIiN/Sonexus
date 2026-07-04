@@ -46,6 +46,7 @@ class MlClassifier(
     private val smoother = SpeechProbSmoother(onThreshold = 0.6, offThreshold = 0.35, hangoverWindows = 6)
     private var vadSeen = false
     private val floorTracker = com.sonex.core.FloorTracker()
+    private val modulation = com.sonex.core.ModulationTracker()  // steady machine vs pulsing person
 
     // ---- Silero VAD ----
     private var ort: OrtEnvironment? = null
@@ -82,15 +83,17 @@ class MlClassifier(
         return try {
             feed(buf, n)
             val floor = floorTracker.update(db)  // robust ambient, every frame
-            // Silero decides the HARD part — is this a person speaking? — robustly
-            // in noise. Gate it floor-relatively so a quiet phone mic still clears
-            // it. Everything that is NOT confident speech is handed to the proven
-            // heuristic (quiet / machine-boost), which avoids boosting on media.
+            val swing = modulation.update(db)    // level fluctuation over ~1s
+            // Silero decides the HARD part — is this a person speaking? — but a
+            // cooler/fan is STEADY (low swing) and a person PULSES: veto steady
+            // sound from ever being "Talking", so a running cooler can't trip it.
+            val steady = swing < com.sonex.core.ModulationTracker.STEADY_SWING_DB
             val talkGate = minOf(adapter.trigger, floor + com.sonex.core.RoomStateMachine.TALK_OVER_FLOOR_DB)
-            // Always run the heuristic (keeps its floor/shape trackers warm and
-            // lets it VETO a machine the VAD misread as speech).
+            // Always run the heuristic (keeps its trackers warm and lets it decide
+            // quiet vs machine-boost for everything that isn't confident speech).
             val heur = fallback.classify(buf, n, db)
-            if (vadSeen && smoother.speaking && db > talkGate && heur != FrameKind.NOISE) FrameKind.SPEECH
+            if (vadSeen && smoother.speaking && !steady && db > talkGate && heur != FrameKind.NOISE)
+                FrameKind.SPEECH
             else heur
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
