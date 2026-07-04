@@ -240,11 +240,12 @@ __GSV__
     background: rgba(0,0,0,0.1);
   }
   body.light-mode .f { background:#ffffff; border-color:#e5e7eb; }
-  body.light-mode .f:hover { border-color:#9ca3af; box-shadow:0 10px 30px rgba(0,0,0,0.05); }
+  body.light-mode .f:hover { background:#f1f3f5; border-color:#9ca3af; box-shadow:0 10px 30px rgba(0,0,0,0.06); }
   body.light-mode .f h3 { color:#111827; }
   body.light-mode .f p { color:#4b5563; }
-  body.light-mode .step { background:#ffffff; border-color:#e5e7eb; }
-  body.light-mode .step:hover { border-color:#9ca3af; box-shadow:0 10px 30px rgba(0,0,0,0.05); }
+  body.light-mode .f .em { color:#111827; }
+  body.light-mode .step { background:transparent; border-color:#e5e7eb; }
+  body.light-mode .step:hover { background:rgba(0,0,0,0.02); border-color:#9ca3af; }
   body.light-mode .step h3 { color:#111827; }
   body.light-mode .step p { color:#4b5563; }
   body.light-mode .btn-primary { background:#111827; color:#ffffff; }
