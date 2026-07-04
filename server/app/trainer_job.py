@@ -77,6 +77,21 @@ def _features_from_wav(data: bytes) -> list[float] | None:
         return None
 
 
+def _predict(model: dict, feats4: list[float]) -> tuple[int, float]:
+    """Argmax class index + softmax confidence for a clip, using a trained model
+    dict. Mirrors training.expand() so features match exactly."""
+    f = training.expand(feats4)
+    mean, std = model["mean"], model["std"]
+    z = [((f[i] - mean[i]) / std[i]) if std[i] > 1e-9 else f[i] for i in range(len(f))]
+    logits = [model["bias"][c] + sum(model["weights"][c][i] * z[i] for i in range(len(f)))
+              for c in range(len(model["classes"]))]
+    mx = max(logits)
+    exps = [math.exp(v - mx) for v in logits]
+    s = sum(exps) or 1.0
+    best = max(range(len(logits)), key=lambda c: logits[c])
+    return best, exps[best] / s
+
+
 async def train_and_publish(db: AsyncSession) -> dict:
     """Train on consented clips (+ level events), publish a new "lite" model,
     and delete the clips that were used. Returns a report dict."""
@@ -84,11 +99,17 @@ async def train_and_publish(db: AsyncSession) -> dict:
 
     # 1) Real labelled audio, from users who consented (clips only exist when the
     #    upload_clips/training consent is on — gated at the upload endpoint).
+    #    TEACHER-VETTED: a model trained on the open datasets vets each clip's
+    #    (self-)label; we keep a clip only when the dataset model AGREES. This
+    #    stops the app reinforcing its own mistakes — training only learns from
+    #    labels an independent, corpus-trained model confirms.
+    teacher = training.train(extra_samples=None)
     clips = (await db.execute(
         select(Clip).where(Clip.label.is_not(None)).order_by(Clip.id.asc()).limit(5000)
     )).scalars().all()
     extra: list[tuple[list[float], int]] = []
     used: list[Clip] = []
+    trusted = 0
     for c in clips:
         ci = _CLASS_IDX.get((c.label or "").upper())
         if ci is None:
@@ -99,8 +120,11 @@ async def train_and_publish(db: AsyncSession) -> dict:
             continue
         feats = _features_from_wav(data)
         if feats is not None:
-            extra.append((feats, ci))
-        used.append(c)  # consume it regardless — audio must not linger
+            pred, conf = _predict(teacher, feats)
+            if pred == ci and conf >= 0.6:  # dataset model confirms the label
+                extra.append((feats, ci))
+                trusted += 1
+        used.append(c)  # consume (and delete) it regardless — audio must not linger
 
     # 2) Weak level-only signal from recent detection events (no audio stored).
     events = (await db.execute(
@@ -171,6 +195,6 @@ async def train_and_publish(db: AsyncSession) -> dict:
         "version": version, "accuracy": round(accuracy, 4),
         "improvement_pct": improvement_pct, "promoted": promote,
         "n_samples": model["n_samples"], "clips_used": len(used),
-        "clips_deleted": deleted, "sha256": sha[:12], "backend": backend,
+        "clips_trusted": trusted, "clips_deleted": deleted, "sha256": sha[:12], "backend": backend,
         "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
