@@ -115,12 +115,11 @@ class RoomStateMachineTest {
         )
     }
 
-    @Test fun classify_near_floor_speech_as_quiet_but_soft_speech_as_whisper() {
-        // Just above the floor: hiss, not a person => QUIET.
+    @Test fun soft_sound_below_talk_gate_is_quiet() {
+        // Whisper removed: anything below the talk gate is simply QUIET (hold).
         assertEquals(FrameKind.QUIET,
             RoomStateMachine.classify(-52.0, true, -30.0, -27.0, noiseFloorDb = -55.0))
-        // Soft, low in the whisper band, below the duck trigger => solo WHISPER.
-        assertEquals(FrameKind.WHISPER,
+        assertEquals(FrameKind.QUIET,
             RoomStateMachine.classify(-46.0, true, -30.0, -27.0, noiseFloorDb = -55.0, zcrFluxRatio = 0.05))
     }
 

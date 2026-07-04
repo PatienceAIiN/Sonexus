@@ -33,32 +33,21 @@ class LiteClassifier(
     private val adapter = ThresholdAdapter(
         ThresholdAdapter.ThresholdBase(calibration.trigger, calibration.boostTrigger, calibration.noiseFloorDb)
     )
-    private val baseFloor = calibration.noiseFloorDb
     private val modulation = ModulationTracker()
     private val zcrFlux = com.sonex.core.ZcrTracker()
+    private val floorTracker = com.sonex.core.FloorTracker()
 
     /** Below this confidence we trust the heuristic instead of the model. */
     private val minConfidence = 0.45
 
     override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
         val m = model ?: return fallback.classify(buf, n, db)
-        val floor = baseFloor + adapter.shiftDb
-        val rmsOverFloor = db - floor
+        val rmsOverFloor = db - floorTracker.update(db)
         val zcr = Dsp.zeroCrossingRate(buf, n)
-        val swing = modulation.update(db)
-        val flux = zcrFlux.update(zcr)
-
-        val (label, prob) = m.predict(rmsOverFloor, zcr, swing, flux)
-        var kind = if (prob < minConfidence) fallback.classify(buf, n, db)
-        else LinearVad.labelToKind(label)
-
-        // Louder whispers = several people => group whisper (gentle duck), same
-        // rule the heuristic uses, so downstream policy is identical.
-        if (kind == FrameKind.WHISPER &&
-            rmsOverFloor >= RoomStateMachine.WHISPER_MARGIN_DB + RoomStateMachine.WHISPER_GROUP_GAP_DB
-        ) kind = FrameKind.WHISPER_GROUP
-
-        adapter.observe(db, kind)
-        return kind
+        val (label, prob) = m.predict(rmsOverFloor, zcr, modulation.update(db), zcrFlux.update(zcr))
+        if (prob < minConfidence) return fallback.classify(buf, n, db)
+        // Whisper removed: any whisper label collapses to QUIET (hold).
+        val kind = LinearVad.labelToKind(label)
+        return if (kind == FrameKind.WHISPER || kind == FrameKind.WHISPER_GROUP) FrameKind.QUIET else kind
     }
 }

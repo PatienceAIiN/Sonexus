@@ -28,20 +28,23 @@ class HeuristicClassifier(calibration: Calibration) : FrameClassifier {
     private var lastKind = FrameKind.QUIET
     private val modulation = com.sonex.core.ModulationTracker()
     private val zcrFlux = com.sonex.core.ZcrTracker()
+    // Robust floor: learns the true ambient every frame, so a silent room can
+    // never stay stuck reading loud/talking.
+    private val floorTracker = com.sonex.core.FloorTracker()
 
     override fun classify(buf: ShortArray, n: Int, db: Double): FrameKind {
+        val floor = floorTracker.update(db)
         val kind = RoomStateMachine.classify(
             db,
             speechShaped = Dsp.isSpeechShaped(buf, n),
             trigger = adapter.trigger,
             boostTrigger = adapter.boostTrigger,
             inSpeechState = lastKind == FrameKind.SPEECH,
-            noiseFloorDb = noiseFloor + adapter.shiftDb,
+            noiseFloorDb = floor,
             dbSwingDb = modulation.update(db),
             whisperShaped = Dsp.isWhisperShaped(buf, n),
             zcrFluxRatio = zcrFlux.update(Dsp.zeroCrossingRate(buf, n))
         )
-        adapter.observe(db, kind)
         lastKind = kind
         return kind
     }

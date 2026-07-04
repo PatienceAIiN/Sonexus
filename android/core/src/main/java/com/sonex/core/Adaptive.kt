@@ -244,3 +244,23 @@ class ZcrTracker(private val window: Int = 34) {
         const val SPEECH_FLUX = 0.04
     }
 }
+
+/**
+ * Robust ambient-floor estimator, updated on EVERY frame (not only quiet ones),
+ * returning a low percentile of recent levels. It always converges to the true
+ * room ambient within a few seconds even if detection is momentarily wrong —
+ * this breaks the "stuck showing loud/talking in a silent room" feedback loop.
+ * Speech/bark peaks sit above the percentile and don't move it; a steady cooler
+ * becomes the floor and speech rides above it.
+ */
+class FloorTracker(private val window: Int = 120, private val pct: Double = 0.12) {
+    private val ring = ArrayDeque<Double>()
+
+    fun update(db: Double): Double {
+        ring.addLast(db)
+        if (ring.size > window) ring.removeFirst()
+        if (ring.size < 8) return db // warming up: current == ambient (no false trigger)
+        val sorted = ring.sorted()
+        return sorted[(sorted.size * pct).toInt().coerceIn(0, sorted.size - 1)]
+    }
+}

@@ -133,22 +133,13 @@ class RoomStateMachine(
             val talksLikeAPerson = speechShaped && changing
             // A clearly UNVOICED sound (breathy, high zero-crossing, not steady
             // machinery) is a whisper even when it's loud — this is what stops
-            // "I whispered but it showed Talking". It never becomes SPEECH.
-            val unvoicedBreath = whisperShaped && !speechShaped && !steady
+            // Only three outcomes now (Whisper removed for stability):
+            //  SPEECH = a person talking (voice-shaped + changing, above talk gate)
+            //  NOISE  = loud non-speech / machinery / dog bark (above boost gate)
+            //  QUIET  = everything else.
             return when {
                 db > talkGate && talksLikeAPerson -> FrameKind.SPEECH
-                // Machine noise only — a breathy whisper must NOT be boosted as noise.
-                db > boostGate && ((!speechShaped && !whisperShaped) || steady) -> FrameKind.NOISE
-                // Whisper band: breathy-shaped + slightly modulated (a flat hum
-                // isn't a person). Soft whispers sit below the trigger; a loud
-                // *unvoiced* whisper is allowed above it too. The louder it is,
-                // the more it's several people => group whisper (gentle duck).
-                whisperShaped && dbSwingDb >= ModulationTracker.MIN_WHISPER_SWING_DB &&
-                    zcrFluxRatio >= WHISPER_MIN_FLUX &&   // a human whisper fluctuates; a cooler doesn't
-                    noiseFloorDb != null && db > noiseFloorDb + WHISPER_MARGIN_DB &&
-                    (db <= talkGate || unvoicedBreath) ->
-                    if (db >= noiseFloorDb + WHISPER_MARGIN_DB + WHISPER_GROUP_GAP_DB)
-                        FrameKind.WHISPER_GROUP else FrameKind.WHISPER
+                db > boostGate && !talksLikeAPerson -> FrameKind.NOISE
                 else -> FrameKind.QUIET
             }
         }
