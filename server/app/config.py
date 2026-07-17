@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     contact_to_email: str = "info@patienceai.in"
     feedback_to_email: str = "growth@patienceai.in"
     google_site_verification: str = ""  # GOOGLE_SITE_VERIFICATION env var
+    # Google Sign-In: the WEB OAuth client ID. Google ID tokens (even from the
+    # Android app) carry this as their audience, so it's what we verify against.
+    # Public value (not a secret); GOOGLE_CLIENT_ID env var overrides if needed.
+    google_client_id: str = "946282223370-r47810qeto2i6dls8rlbd1hs2bpidikl.apps.googleusercontent.com"
     site_url: str = ""  # e.g. https://sonex.patienceai.in — overrides host detection
 
     # Rate limiting (requests per window seconds, per device/user)

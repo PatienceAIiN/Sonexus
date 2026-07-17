@@ -364,7 +364,7 @@ __GSV__
 <div class="hero">
   <div style="display:flex; align-items:center; margin-bottom:24px;"><span class="hero-tag" style="margin-bottom:0;">Intelligent Volume</span></div>
   <div class="rotator" id="rotator"><span>Volume that listens.<span class="cursor"></span></span></div>
-  <p class="sub">An adaptive, on-device AI audio engine that detects human speech and instantly ducks your media. Private by design.</p>
+  <p class="sub">An adaptive AI audio engine that detects human speech and instantly ducks your media. Works instantly offline; cloud-smart by default, with one-tap on-device privacy.</p>
   
   <div class="cta-group" id="download">
     <button class="btn primary" onclick="openDownloadModal(event)">
@@ -396,8 +396,8 @@ __GSV__
     </div>
     <div class="f reveal">
       <div class="em">04</div>
-      <h3>Absolute Privacy</h3>
-      <p>Data never leaves the device. If telemetry is explicitly enabled, it strictly strips audio and uses zero-knowledge profiles.</p>
+      <h3>Privacy you control</h3>
+      <p>Cloud-smart by default so detection keeps improving — or switch to fully on-device processing in one tap. Audio used only to improve detection, then deleted.</p>
     </div>
   </div>
 </section>
@@ -775,18 +775,22 @@ this off at any time. See the <a href="/privacy">Privacy Policy</a> for full det
 Questions: <a href="mailto:info@patienceai.in">info@patienceai.in</a>.</p>"""
 
 PRIVACY_BODY = """
-<p>SoNex is private by default: all audio is processed on your phone and immediately
-discarded. Nothing leaves your device unless you switch on a specific, revocable consent.</p>
+<p>SoNex uses secure cloud processing by default so detection keeps improving across all your
+devices out of the box. Short audio clips, detection events and volume corrections are uploaded
+over HTTPS and processed on our servers. You agree to this at sign-up, and you can switch SoNex to
+<b>on-device-only mode any time</b> in Settings → Privacy ("Keep my data on this device"), which
+stops all uploads immediately.</p>
 <h2>Audio for improvement ("Let SoNex learn my home")</h2>
-<p>Only if you explicitly turn this on — after an in-app confirmation — SoNex uploads short
-audio clips to help improve the detection model. We are clear about exactly what happens:</p>
+<p>This is <b>on by default</b> (you agree at sign-up, and there is an in-app confirmation when you
+change it). SoNex uploads short audio clips to improve the detection model. We are clear about
+exactly what happens:</p>
 <ul>
 <li><b>Purpose only:</b> the audio is used solely to train and improve SoNex's detection. Nothing else.</li>
 <li><b>Never shared:</b> it is not sold, rented, or shared with any third party.</li>
 <li><b>Auto-deleted after training:</b> once a training run has used a clip, that clip is deleted
 automatically — audio is not retained after it has served its single purpose.</li>
-<li><b>Fully optional &amp; revocable:</b> turn it off any time; collection stops immediately, and users
-who never turned it on have no audio collected at all.</li>
+<li><b>Fully revocable:</b> turn it off any time in Settings; collection stops immediately and SoNex
+switches to fully on-device processing.</li>
 <li><b>Secure:</b> clips are transmitted over HTTPS and stored in access-controlled storage until deletion.</li>
 </ul>
 <h2>What we store</h2><p>With an account: your email and a salted password hash. With consents
@@ -848,7 +852,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
-    ("5.0", "Two big reliability fixes. First: the app could get stuck showing 'Ready' and never actually start after you pressed Start — it now always begins listening the moment you tap Start, on every phone. Second — and most importantly — SoNex no longer shows 'Talking' when no one is speaking. Deciding 'is this a real person?' now needs several independent signs of a human voice to agree at once: live voice activity, a voiced pitch you can hear the harmonics of, the natural rise-and-fall of speech, and the sound's type — so a running cooler, fan, airflow or hiss can fool one of them but never all of them. Real talking still lowers your media instantly, machines and vehicles raise it, and a stray blip can no longer trip the room into a stuck 'Talking'. Applies to the phone app; SoNex Web already uses the same neural voice detection."),
+    ("5.0", "The big reliability release. Two fixes you'll feel immediately. First, the home screen now clearly shows SoNex is working: the moment you press Start it says 'Listening · mic active' with a live room-level meter that moves with the sound around you — so it never looks frozen or 'dead' again. Second, detection is genuinely reliable now: SoNex recognises a real human voice by the natural harmonic tone of speech — something a fan, cooler, airflow or hiss physically cannot fake — so it lowers your media the instant someone actually talks, raises it for machines and vehicles, and no longer shows 'Talking' when the room is just noisy. A brief stray sound can no longer get the room stuck on 'Talking' either. All verified on real devices."),
     ("4.9", "Fixed the app sometimes showing only 'Ready' and not starting on certain phones — it now falls back to a working microphone automatically. Added a microphone picker so you can choose which mic to listen with, and a dashboard card that shows how much SoNex has improved itself over time, with the models and data behind it."),
     ("4.8", "Detection now decides by the TYPE of sound — a real human voice versus a steady machine — instead of guessing from how loud it is. Talking ducks your media at any volume; a cooler, fan or motor raises it."),
     ("4.7", "Big cut in false 'Talking'. SoNex also stops fighting your own phone's audio: when you're watching reels or playing music on the same phone, it hears its own speaker and keeps the volume normal instead of ducking it."),

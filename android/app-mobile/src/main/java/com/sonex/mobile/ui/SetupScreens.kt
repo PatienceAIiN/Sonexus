@@ -1,6 +1,7 @@
 package com.sonex.mobile.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -65,9 +66,15 @@ fun CalibrateScreen(onDone: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()
+        .background(sonexBackground())) {
+    Scaffold(
+      containerColor = androidx.compose.ui.graphics.Color.Transparent,
+      contentColor = MaterialTheme.colorScheme.onBackground,
+      topBar = {
         TopAppBar(
             title = { Text("Calibrate") },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             navigationIcon = {
                 IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }
@@ -139,6 +146,7 @@ fun CalibrateScreen(onDone: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 
@@ -215,10 +223,15 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
         )
     }
 
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()
+        .background(sonexBackground())) {
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 }
@@ -236,11 +249,6 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             )
 
             SectionHeader(Icons.Filled.SquareFoot, "Room size")
-            Text(
-                "Bigger rooms get higher sensitivity.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Spacer(Modifier.height(8.dp))
             var roomPreset by remember { mutableStateOf(Prefs.roomPreset(ctx)) }
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -256,7 +264,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                                 sensitivity = preset.sensitivity,
                                 restoreDelaySec = preset.restoreDelaySec
                             ))
-                            toast("${preset.label} ✓ sensitivity ${(preset.sensitivity * 100).toInt()}%")
+                            toast("${preset.label} · sensitivity ${(preset.sensitivity * 100).toInt()}%")
                             ServerSync.pushSettings(ctx, mapOf("room" to preset.name))
                         },
                         label = { Text(preset.label) }
@@ -269,7 +277,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (mode, label) ->
                     FilterChip(
                         selected = theme == mode,
-                        onClick = { buzz(); theme = mode; Prefs.setThemeMode(ctx, mode); toast("Theme: $label ✓"); ServerSync.pushSettings(ctx, mapOf("theme" to mode)) },
+                        onClick = { buzz(); theme = mode; Prefs.setThemeMode(ctx, mode); toast("Theme: $label"); ServerSync.pushSettings(ctx, mapOf("theme" to mode)) },
                         label = { Text(label) },
                         leadingIcon = {
                             Icon(
@@ -284,15 +292,32 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 }
             }
             SectionHeader(Icons.Filled.Shield, "Privacy & consent")
-            Text(
-                "Audio never leaves your phone unless you turn these on.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Spacer(Modifier.height(8.dp))
-            ConsentRow("Keep my data on this device", onDevice) {
-                onDevice = it
-                syncedConsent("c_store_server", !it)
+            var pendingOnDevice by remember { mutableStateOf<Boolean?>(null) }
+            // Optimistic: the switch moves right away (feels accepted); the dialog
+            // confirms, and Cancel/dismiss reverts it.
+            ConsentRow("Keep my data on this device", onDevice) { newVal ->
+                onDevice = newVal; pendingOnDevice = newVal
+            }
+            pendingOnDevice?.let { target ->
+                AlertDialog(
+                    onDismissRequest = { onDevice = !target; pendingOnDevice = null },
+                    title = { Text(if (target) "Keep everything on this phone?" else "Allow cloud processing?") },
+                    text = {
+                        Text(
+                            if (target) "SoNex will keep all data on your phone and stop sending anything to the server."
+                            else "SoNex will process and store data on the server so detection keeps improving across your devices."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            syncedConsent("c_store_server", !target); pendingOnDevice = null
+                        }) { Text("Confirm") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { onDevice = !target; pendingOnDevice = null }) { Text("Cancel") }
+                    }
+                )
             }
             ConsentRow("Upload clips to improve SoNex", upload) { upload = it; syncedConsent("c_upload", it) }
             ConsentRow("Anonymous usage stats", telemetry) { telemetry = it; syncedConsent("c_telemetry", it) }
@@ -312,53 +337,11 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                 autoStart = it
                 Prefs.setAutoStartOnWifi(ctx, it)
                 if (it) Prefs.setAutoStartSuppressed(ctx, false)
-                toast(if (it) "SoNex will start on its own near your TV ✓" else "Auto-start off")
+                toast(if (it) "SoNex will start on its own near your TV" else "Auto-start off")
             }
-            Text(
-                "When your phone joins the same Wi-Fi as your paired TV, SoNex starts listening automatically.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
 
-            // ---- Microphone picker (which mic SoNex listens with) ----
-            Spacer(Modifier.height(12.dp))
-            Text("Microphone", style = MaterialTheme.typography.titleSmall)
-            val am = remember { ctx.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
-            val mics = remember {
-                am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).filter {
-                    it.type in intArrayOf(
-                        android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC,
-                        android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-                        android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                        android.media.AudioDeviceInfo.TYPE_USB_HEADSET
-                    )
-                }
-            }
-            fun micLabel(t: Int) = when (t) {
-                android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth mic"
-                android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired mic"
-                android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> "USB mic"
-                else -> "Built-in mic"
-            }
-            var micId by remember { mutableStateOf(Prefs.micDeviceId(ctx)) }
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = micId == -1, onClick = {
-                    buzz(); micId = -1; Prefs.setMicDeviceId(ctx, -1)
-                    toast("Automatic mic ✓ — press Stop then Start to apply")
-                }, label = { Text("Automatic") })
-                mics.forEach { d ->
-                    FilterChip(selected = micId == d.id, onClick = {
-                        buzz(); micId = d.id; Prefs.setMicDeviceId(ctx, d.id)
-                        toast("${micLabel(d.type)} ✓ — press Stop then Start to apply")
-                    }, label = { Text(micLabel(d.type)) })
-                }
-            }
-            Text(
-                "Best quality on the built-in mic. Sound plays on your connected device (earbuds/speaker) automatically.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Microphone is always automatic (built-in by default, switches to a
+            // connected headset/earbud mic on its own) — no manual picker needed.
 
             Spacer(Modifier.height(8.dp))
             listOf(
@@ -428,7 +411,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
                         TextButton(onClick = {
                             confirmLogout = false
                             Prefs.logout(ctx)
-                            toast("Logged out ✓")
+                            toast("Logged out")
                             onLoggedOut()
                         }) { Text("Log out") }
                     },
@@ -479,6 +462,7 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             )
             Spacer(Modifier.height(12.dp))
         }
+    }
     }
 }
 

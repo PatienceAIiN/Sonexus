@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Signal-violet sound bars: the SoNex mark. -->
+<!-- White sound bars on the violet gradient — the SoNex mark (Apple-style). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#7C4DFF" android:pathData="M38,46h6v16h-6z" />
-    <path android:fillColor="#7C4DFF" android:pathData="M48,38h6v32h-6z" />
-    <path android:fillColor="#2DD4BF" android:pathData="M58,30h6v48h-6z" />
-    <path android:fillColor="#7C4DFF" android:pathData="M68,42h6v24h-6z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M30,45h7v18h-7z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M40,38h7v32h-7z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M50,31h7v46h-7z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M60,38h7v32h-7z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M70,45h7v18h-7z" />
 </vector>

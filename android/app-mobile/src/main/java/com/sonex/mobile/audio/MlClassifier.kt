@@ -28,6 +28,9 @@ class MlClassifier(
 
     companion object {
         private const val TAG = "SonexMl"
+        /** Flip to log per-frame cue values (db/floor/voiced/harm/decision) to
+         *  logcat tag "SonexMl" for on-device detection tuning. Off in shipping. */
+        private const val DEBUG = false
         private const val VAD_WINDOW = 512              // Silero v5 fixed window @16k
         private const val YAMNET_WINDOW = 15_600        // 0.975s @16k
         private const val YAMNET_EVERY_FRAMES = 16      // run YAMNet ~every 0.5s
@@ -42,12 +45,18 @@ class MlClassifier(
         private const val VOICED_ZCR_LO = 0.05
         private const val VOICED_ZCR_HI = 0.35
         /** Peak normalized autocorrelation above which a sound is periodic (voiced).
-         *  Voiced vowels score 0.6-0.9; airflow/hiss/road noise are aperiodic and
-         *  fall well below. Conservative so soft/distant gossip still passes. */
-        private const val HARMONIC_MIN = 0.30
+         *  On-device measurement: voiced speech reads 0.38-0.65, a quiet/ambient
+         *  room 0.01-0.30. 0.35 sits in that gap — catches speech, rejects noise. */
+        private const val HARMONIC_MIN = 0.35
+        /** A voice riding this far above the room floor is a person talking OVER a
+         *  machine. A loud cooler destroys harmonicity (broadband masks the voice),
+         *  so when speech is well above the floor we accept it on the level
+         *  excursion instead — the cooler itself sits AT the floor, not above it. */
+        private const val LOUD_VOICE_OVER_FLOOR_DB = 8.0
     }
 
     private var broken = false
+    private var dbgTick = 0
 
     // Adaptive thresholds + smoothed VAD verdict with hangover (see :core).
     private val adapter = ThresholdAdapter(
@@ -116,15 +125,33 @@ class MlClassifier(
             val aboveFloor = db > floor + VOICE_OVER_FLOOR_DB
             //  (6) periodic like a voice (harmonic) — the cue airflow CAN'T fake.
             //      Computed last (&&-short-circuit) so it only runs when it matters.
-            val voice = vadSpeaking && voicedShape && soundSaysSpeech && !steady && aboveFloor &&
-                com.sonex.core.Dsp.harmonicity(buf, n) >= HARMONIC_MIN
+            val harm = com.sonex.core.Dsp.harmonicity(buf, n)
+            // Silero VAD proved BROKEN on-device — it returns "not speaking" even
+            // for loud, clearly voiced, harmonic speech (verified on-device). So it
+            // is NO LONGER REQUIRED. A human voice is detected TWO ways so it works
+            // both in a quiet room AND over a running cooler:
+            //  (a) harmonic voice — clearly periodic, above the floor (quiet room)
+            //  (b) voice over a machine — a loud cooler masks harmonicity, but the
+            //      voice still rides well above the floor (the cooler sits AT the
+            //      floor). The state machine's density requirement stops the
+            //      cooler's own sporadic spikes from latching TALKING.
+            val harmonicVoice = aboveFloor && harm >= HARMONIC_MIN
+            val voiceOverMachine = db > floor + LOUD_VOICE_OVER_FLOOR_DB
+            val voice = voicedShape && soundSaysSpeech && !steady &&
+                (harmonicVoice || voiceOverMachine)
 
             val loud = db > floor + com.sonex.core.RoomStateMachine.BOOST_OVER_FLOOR_DB
-            when {
+            val kind = when {
                 voice -> FrameKind.SPEECH   // a real person -> duck
                 loud -> FrameKind.NOISE     // loud non-voice -> boost (machine/vehicle)
                 else -> FrameKind.QUIET
             }
+            if (DEBUG && ++dbgTick >= 15) {
+                dbgTick = 0
+                Log.d(TAG, "CUES db=%.1f floor=%.1f | vad=%b voiced=%b(zcr=%.2f) sound=%b !steady=%b above=%b harm=%.2f => %s"
+                    .format(db, floor, vadSpeaking, voicedShape, zcr, soundSaysSpeech, !steady, aboveFloor, harm, kind))
+            }
+            kind
         } catch (t: Throwable) {
             Log.w(TAG, "Inference failed, dropping to heuristic", t)
             broken = true

@@ -27,6 +27,10 @@ class DetectionEngine(
     private val preferredMicId: Int = -1,
     /** Used only to resolve [preferredMicId] to a device; null = auto mic. */
     private val audioManager: android.media.AudioManager? = null,
+    /** Live loudness ~8×/sec, EVERY frame regardless of state — so the UI shows a
+     *  moving room level and proves the mic works even in a quiet room (otherwise
+     *  the screen looks frozen on "Ready" and the app seems dead). */
+    private val onLevel: (Double) -> Unit = {},
     private val onState: (RoomState, Double) -> Unit
 ) {
     companion object {
@@ -98,11 +102,15 @@ class DetectionEngine(
     private fun loop() {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
         val buf = ShortArray(FRAME_SAMPLES)
+        var lvlTick = 0
         while (running) {
             val n = record?.read(buf, 0, FRAME_SAMPLES) ?: break
             if (n <= 0) continue
             pcmTap?.invoke(buf, n)
             val db = Dsp.rmsDb(buf, n)
+            // Push the live level ~every 4th frame (~120ms) so the UI is always
+            // visibly alive; routing/notifications still fire only on real changes.
+            if (++lvlTick >= 4) { lvlTick = 0; onLevel(db) }
             machine.step(classifier.classify(buf, n, db))?.let { onState(it, db) }
         }
     }

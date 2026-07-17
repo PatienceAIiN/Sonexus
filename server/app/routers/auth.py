@@ -99,6 +99,54 @@ async def verify(body: OtpVerifyIn, db: AsyncSession = Depends(get_db)):
     return TokenOut(access_token=create_access_token(user.id, user.token_version))
 
 
+class GoogleAuthIn(BaseModel):
+    id_token: str
+
+
+@router.post("/auth/google", response_model=TokenOut)
+async def google_auth(body: GoogleAuthIn, db: AsyncSession = Depends(get_db)):
+    """Sign in / sign up with Google. The app sends a Google ID token; we verify
+    it with Google, then create or link the account by (verified) email and issue
+    our own session JWT. No password is needed for Google accounts."""
+    import httpx
+    from ..config import settings
+
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="Google sign-in isn't set up yet")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://oauth2.googleapis.com/tokeninfo",
+                                  params={"id_token": body.id_token})
+    except Exception:
+        raise HTTPException(status_code=502, detail="Couldn't reach Google — try again")
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail="Google sign-in failed — try again")
+    info = r.json()
+    # The token must be issued by Google, minted FOR our app, with a verified email.
+    if info.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    if info.get("aud") != settings.google_client_id:
+        raise HTTPException(status_code=401, detail="This Google token wasn't issued for SoNex")
+    if str(info.get("email_verified")).lower() != "true":
+        raise HTTPException(status_code=401, detail="Your Google email isn't verified")
+    email = (info.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Google didn't return an email")
+
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is None:
+        # No password for Google accounts — store a random unusable hash.
+        user = User(email=email,
+                    password_hash=hash_password(secrets.token_urlsafe(32)),
+                    is_verified=True)
+        db.add(user)
+    else:
+        user.is_verified = True  # Google already verified the email
+    await db.commit()
+    await db.refresh(user)
+    return TokenOut(access_token=create_access_token(user.id, user.token_version))
+
+
 @router.post("/auth/login", response_model=TokenOut)
 async def login(body: LoginIn, db: AsyncSession = Depends(get_db)):
     email = body.email.strip().lower()

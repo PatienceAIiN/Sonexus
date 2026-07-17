@@ -17,6 +17,7 @@ object AuthApi {
     @Serializable private data class VerifyIn(val email: String, val code: String)
     @Serializable private data class ForgotIn(val email: String)
     @Serializable private data class ResetIn(val email: String, val code: String, val new_password: String)
+    @Serializable private data class GoogleIn(val id_token: String)
     @Serializable private data class Reply(
         val access_token: String = "",
         val detail: String = "",
@@ -47,6 +48,10 @@ object AuthApi {
 
     suspend fun reset(base: String, email: String, code: String, newPassword: String): Result =
         post("$base/v1/auth/reset", json.encodeToString(ResetIn.serializer(), ResetIn(email, code, newPassword)))
+
+    /** Exchange a Google ID token for a SoNex session (creates/links the account). */
+    suspend fun google(base: String, idToken: String): Result =
+        post("$base/v1/auth/google", json.encodeToString(GoogleIn.serializer(), GoogleIn(idToken)))
 
     private suspend fun post(url: String, body: String): Result = withContext(Dispatchers.IO) {
         runCatching {

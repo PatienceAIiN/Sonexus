@@ -26,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.sonex.mobile.R
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -108,6 +110,42 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         }
     }
 
+    // ---- Google Sign-In: request an ID token our server can verify ----
+    val webClientId = stringResource(R.string.google_web_client_id)
+    val googleClient = remember(webClientId) {
+        if (webClientId.isBlank()) null
+        else com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(
+            ctx,
+            com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
+                com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN
+            ).requestIdToken(webClientId).requestEmail().build()
+        )
+    }
+    val googleLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { res ->
+        val account = runCatching {
+            com.google.android.gms.auth.api.signin.GoogleSignIn
+                .getSignedInAccountFromIntent(res.data)
+                .getResult(com.google.android.gms.common.api.ApiException::class.java)
+        }.getOrNull()
+        val idToken = account?.idToken
+        if (idToken == null) {
+            error = "Google sign-in didn't complete — try again"
+        } else {
+            account.email?.let { email = it }
+            working = true
+            scope.launch {
+                when (val r = AuthApi.google(base, idToken)) {
+                    is AuthApi.Result.Success -> succeed(r.token)
+                    is AuthApi.Result.Info -> info = r.message
+                    is AuthApi.Result.Failure -> error = r.message
+                }
+                working = false
+            }
+        }
+    }
+
     // Signature: a slow-breathing violet aura behind the wordmark.
     val pulse = rememberInfiniteTransition(label = "pulse")
     val scale by pulse.animateFloat(
@@ -116,14 +154,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     )
 
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                listOf(MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.surface)
-            )
-        )
+        Modifier.fillMaxSize().background(sonexBackground())
     ) {
         Column(
-            Modifier.fillMaxSize().padding(28.dp),
+            Modifier.fillMaxSize().statusBarsPadding().padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -218,7 +252,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                                     pushStyle(SpanStyle(color = MaterialTheme.colorScheme.primary,
                                         textDecoration = TextDecoration.Underline))
                                     append("Terms & Privacy"); pop()
-                                    append(" (audio is used only to improve SoNex and deleted after training)")
+                                    append(" — SoNex improves in the cloud (audio deleted after training); switch to on-device any time in Settings")
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.clickable {
@@ -244,6 +278,31 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                             if (isSignup) "Create account" else "Sign in",
                             style = MaterialTheme.typography.labelLarge
                         )
+                    }
+                    if (googleClient != null) {
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            HorizontalDivider(Modifier.weight(1f))
+                            Text("  or  ", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            HorizontalDivider(Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                error = null
+                                // Sign out first so the account picker always shows.
+                                googleClient.signOut()
+                                googleLauncher.launch(googleClient.signInIntent)
+                            },
+                            enabled = !working,
+                            modifier = Modifier.fillMaxWidth().height(54.dp)
+                        ) {
+                            Text("G", fontWeight = FontWeight.Black, fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Continue with Google", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                     if (!isSignup) {
                         TextButton(onClick = { showForgot = true }) {
@@ -394,9 +453,14 @@ fun PairScreen(onPaired: (String) -> Unit, onBack: () -> Unit) {
                  else "No SoNex TV found. Make sure both are on the same Wi-Fi."
     }
 
-    Scaffold(topBar = {
+    Box(Modifier.fillMaxSize().background(sonexBackground())) {
+    Scaffold(
+      containerColor = androidx.compose.ui.graphics.Color.Transparent,
+      contentColor = MaterialTheme.colorScheme.onBackground,
+      topBar = {
         TopAppBar(
             title = { Text("Pair TV") },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -435,17 +499,28 @@ fun PairScreen(onPaired: (String) -> Unit, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(20.dp))
+        var manualIp by remember { mutableStateOf("") }
+        val ready = found || manualIp.isNotBlank()
         OutlinedTextField(
             code, { if (it.length <= 4 && it.all(Char::isDigit)) code = it },
-            label = { Text("Enter code") }, singleLine = true, enabled = found,
+            label = { Text("Enter code") }, singleLine = true, enabled = ready,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+        )
+        // Fallback for Wi-Fi that blocks auto-discovery: type the IP shown on the TV.
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            manualIp, { manualIp = it.trim() },
+            label = { Text("Or TV IP (shown on TV)") }, singleLine = true,
+            placeholder = { Text("192.168.1.x") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
         Spacer(Modifier.height(24.dp))
         Button(
-            enabled = found && code.length == 4 && !working,
+            enabled = ready && code.length == 4 && !working,
             onClick = {
                 working = true
                 scope.launch {
+                    if (!found && manualIp.isNotBlank()) client.setManualHost(manualIp)
                     val res = client.pair(code, "My Phone")
                     working = false
                     if (res.ok) onPaired(res.tvName)
@@ -454,6 +529,7 @@ fun PairScreen(onPaired: (String) -> Unit, onBack: () -> Unit) {
             },
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) { if (working) CircularProgressIndicator(Modifier.size(22.dp)) else Text("Connect") }
+    }
     }
     }
 }

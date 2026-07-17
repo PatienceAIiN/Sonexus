@@ -76,6 +76,10 @@ class ListeningService : Service() {
         // can leave us stuck on "Ready". Every optional part is fault-isolated.
         startForegroundSafely()
         running.value = true
+        // Show a live "listening" status immediately — NOT the stale "Ready" —
+        // even before the room state first changes, so the app never looks dead.
+        stateFlow.value = RoomState.QUIET to stateFlow.value.second
+        actionLabel.value = statusText(RoomState.QUIET)
 
         pairing = PairingClient(this)
         router = OutputRouter(
@@ -119,7 +123,8 @@ class ListeningService : Service() {
             val col = ClipCollector(DetectionEngine.SAMPLE_RATE)
             collector = col
             engine = DetectionEngine(cal, buildClassifier(cal), MicSource.best(this),
-                    Prefs.micDeviceId(this), audio) { state, db -> onState(state, db) }
+                    Prefs.micDeviceId(this), audio,
+                    onLevel = { db -> onLevel(db) }) { state, db -> onState(state, db) }
                 .also {
                     // Keep only a 1.5s rolling buffer in RAM; it is only ever
                     // uploaded when the user opted into "Let SoNex learn my home".
@@ -208,6 +213,14 @@ class ListeningService : Service() {
             RoomState.WHISPER_GROUP -> "Whispering — $verb"
             RoomState.QUIET -> "Listening · mic active"
         }
+    }
+
+    /** Live loudness between state changes: moves the on-screen room level so the
+     *  user can SEE SoNex is listening. Keeps the current state's colour; never
+     *  touches routing or the notification (those change only on real states). */
+    private fun onLevel(db: Double) {
+        if (callActive) return
+        stateFlow.value = stateFlow.value.first to db
     }
 
     private fun onState(state: RoomState, db: Double) {

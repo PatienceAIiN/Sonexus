@@ -71,6 +71,12 @@ class PairingClient(context: Context) {
         nsd.discoverServices(Net.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
     }
 
+    /** Manually point at the TV by the IP it shows — fallback for Wi-Fi networks
+     *  that block mDNS discovery. Returns false if the IP is unparseable. */
+    fun setManualHost(ip: String): Boolean = runCatching {
+        host = InetAddress.getByName(ip.trim()); port = Net.DEFAULT_PORT; true
+    }.getOrDefault(false)
+
     /** Submit the 4-digit code the TV is showing. */
     suspend fun pair(code: String, phoneName: String): PairResponse = withContext(Dispatchers.IO) {
         val h = host ?: return@withContext PairResponse(false, "", "TV not found on network")

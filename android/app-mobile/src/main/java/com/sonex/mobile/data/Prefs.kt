@@ -29,9 +29,12 @@ object Prefs {
     // ---- Theme (system | dark | light), observable for live switching ----
     val themeState = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
-    fun themeMode(c: Context): String = sp(c).getString("theme_mode", "light") ?: "light"
+    // v5 ships the dark "studio" look as the default. New key so existing installs
+    // (which stored "light" under the old key) move to dark once; the Settings
+    // toggle still lets anyone switch back and it persists under this key.
+    fun themeMode(c: Context): String = sp(c).getString("theme_mode_v2", "dark") ?: "dark"
     fun setThemeMode(c: Context, v: String) {
-        sp(c).edit().putString("theme_mode", v).apply()
+        sp(c).edit().putString("theme_mode_v2", v).apply()
         themeState.value = v
     }
 
@@ -162,6 +165,13 @@ object Prefs {
     fun setListeningEnabled(c: Context, v: Boolean) =
         sp(c).edit().putBoolean("listening_on", v).apply()
 
+    /** True once we've asked for the mic permission at least once. Lets us tell
+     *  "never asked" (show the system dialog) from "permanently denied" (the
+     *  dialog won't appear — send the user to app Settings instead). */
+    fun micPermissionAsked(c: Context) = sp(c).getBoolean("mic_perm_asked", false)
+    fun setMicPermissionAsked(c: Context, v: Boolean) =
+        sp(c).edit().putBoolean("mic_perm_asked", v).apply()
+
     // ---- Auto-start: when the phone joins the same Wi-Fi as a paired TV,
     // start listening on its own. On by default (the app is fully automatic);
     // a manual Stop still wins for the rest of that Wi-Fi session. ----
@@ -179,13 +189,16 @@ object Prefs {
     @Suppress("UNUSED_PARAMETER")
     fun hapticsEnabled(c: Context) = true // always on — consistent tactile feel
 
-    /** Keep my data on device only (true) or allow server storage (false). */
-    fun storeOnDeviceOnly(c: Context) = !sp(c).getBoolean("c_store_server", false)
+    /** Keep my data on device only (true) or allow server storage (false).
+     *  v5: cloud processing is the default (server-ON), so this is OFF by default. */
+    fun storeOnDeviceOnly(c: Context) = !sp(c).getBoolean("c_store_server", true)
 
-    // Consents — all false by default (privacy by default).
-    fun consentUploadClips(c: Context) = sp(c).getBoolean("c_upload", false)
-    fun consentTelemetry(c: Context) = sp(c).getBoolean("c_telemetry", false)
-    fun consentTraining(c: Context) = sp(c).getBoolean("c_training", false)
+    // Consents — v5 defaults to cloud/server processing ON so detection keeps
+    // improving across devices out of the box (the Privacy Policy + sign-up
+    // consent state this; every one can be turned off any time in Settings).
+    fun consentUploadClips(c: Context) = sp(c).getBoolean("c_upload", true)
+    fun consentTelemetry(c: Context) = sp(c).getBoolean("c_telemetry", true)
+    fun consentTraining(c: Context) = sp(c).getBoolean("c_training", true)
     fun consentWakeWord(c: Context) = sp(c).getBoolean("c_wakeword", false)
     fun setConsent(c: Context, key: String, v: Boolean) = sp(c).edit().putBoolean(key, v).apply()
 

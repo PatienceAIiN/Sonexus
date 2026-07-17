@@ -1,9 +1,12 @@
 package com.sonex.mobile.ui
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.app.NotificationCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,12 +49,22 @@ class MainActivity : ComponentActivity() {
                 var screen by remember {
                     mutableStateOf(if (Prefs.isLoggedIn(this)) Screen.HOME else Screen.LOGIN)
                 }
+                // Shown when the mic permission is permanently denied — the system
+                // dialog no longer appears, so we must send the user to Settings.
+                var needMicSettings by remember { mutableStateOf(false) }
 
                 val permissions = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
                 ) { granted ->
                     if (granted[Manifest.permission.RECORD_AUDIO] == true) startListening()
+                    else if (!androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                            this, Manifest.permission.RECORD_AUDIO)) {
+                        // Denied with "don't ask again" -> only Settings can fix it.
+                        needMicSettings = true
+                    } else toast("SoNex needs the microphone to hear the room and adjust volume.")
                 }
+
+                if (needMicSettings) MicPermissionDialog(onDismiss = { needMicSettings = false })
 
                 // System back: navigate inside the app, never silently exit.
                 var lastBackPress by remember { mutableStateOf(0L) }
@@ -72,6 +85,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Mirror the OTA model download/configure to a notification, so the
+                // user sees progress even outside the app; cleared when it's done.
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.flow.combine(
+                        com.sonex.mobile.data.ModelStore.syncStatus,
+                        com.sonex.mobile.data.ModelStore.syncProgress
+                    ) { s, p -> s to p }.collect { (s, p) -> updateSetupNotification(s, p) }
+                }
+
                 AutoUpdatePrompt()
                 when (screen) {
                     Screen.LOGIN -> LoginScreen(onLoggedIn = { screen = Screen.HOME })
@@ -87,8 +109,18 @@ class MainActivity : ComponentActivity() {
                         onSettings = { screen = Screen.SETTINGS },
                         onPairTv = { screen = Screen.PAIR },
                         onEnsureMic = {
-                            if (hasPermission(Manifest.permission.RECORD_AUDIO)) startListening()
-                            else permissions.launch(requiredPermissions())
+                            when {
+                                hasPermission(Manifest.permission.RECORD_AUDIO) -> startListening()
+                                // Never asked, or a normal denial -> the system dialog can still show.
+                                !Prefs.micPermissionAsked(this) ||
+                                    androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                                        this, Manifest.permission.RECORD_AUDIO) -> {
+                                    Prefs.setMicPermissionAsked(this, true)
+                                    permissions.launch(requiredPermissions())
+                                }
+                                // Asked before and the dialog won't reappear -> permanently denied.
+                                else -> needMicSettings = true
+                            }
                         }
                     )
                     Screen.CALIBRATE -> CalibrateScreen(onDone = { screen = Screen.HOME })
@@ -153,6 +185,27 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    /** Mic permanently denied: the system dialog no longer appears, so guide the
+     *  user to app Settings where they can turn Microphone back on. */
+    @Composable
+    private fun MicPermissionDialog(onDismiss: () -> Unit) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Turn on the microphone") },
+            text = { Text("SoNex needs microphone access to hear the room and adjust your volume. " +
+                    "It's currently off — tap Open Settings, then allow Microphone for SoNex.") },
+            confirmButton = { TextButton(onClick = { openAppSettings(); onDismiss() }) { Text("Open Settings") } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        )
+    }
+
+    private fun openAppSettings() {
+        runCatching {
+            startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.fromParts("package", packageName, null)))
+        }
+    }
+
     private fun hasPermission(p: String) =
         ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
@@ -161,8 +214,38 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
         else arrayOf(Manifest.permission.RECORD_AUDIO)
 
+    /** OTA download/configure progress mirrored to the notification shade. */
+    private fun updateSetupNotification(status: String?, progress: Float?) {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (status == null) { nm.cancel(42); return }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            nm.getNotificationChannel("sonex_setup") == null) {
+            nm.createNotificationChannel(
+                NotificationChannel("sonex_setup", "SoNex setup", NotificationManager.IMPORTANCE_LOW)
+            )
+        }
+        val done = status.contains("ready", ignoreCase = true)
+        val b = NotificationCompat.Builder(this, "sonex_setup")
+            .setSmallIcon(if (done) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_sys_download)
+            .setContentTitle("SoNex")
+            .setContentText(status)
+            .setOngoing(!done)
+            .setSilent(true)
+        when {
+            done -> b.setProgress(0, 0, false)
+            progress != null -> b.setProgress(100, (progress * 100).toInt(), false)
+            else -> b.setProgress(0, 0, true) // indeterminate (configuring)
+        }
+        runCatching { nm.notify(42, b.build()) }
+    }
+
     private fun startListening() {
-        ContextCompat.startForegroundService(this, Intent(this, ListeningService::class.java))
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, ListeningService::class.java))
+        } catch (t: Throwable) {
+            android.util.Log.e("SonexMain", "startForegroundService failed", t)
+            toast("Couldn't start listening: ${t.message ?: t.javaClass.simpleName}")
+        }
     }
 
     private fun toast(m: String) = runOnUiThread {
@@ -190,7 +273,7 @@ class MainActivity : ComponentActivity() {
                 if (!hadVad) toast("Downloading smart detection… (one-time)")
                 val updated = store.sync(url, key, id)
                 if (!hadVad && "vad" in updated && store.verifiedFile("vad") != null)
-                    toast("Smart detection ready ✓ — restart listening to use it")
+                    toast("Smart detection ready — restart listening to use it")
             }
         }
     }

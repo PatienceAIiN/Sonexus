@@ -65,5 +65,7 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     // Phase 7: Cast output target
     implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
+    // Google Sign-In (Continue with Google)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     testImplementation("junit:junit:4.13.2")
 }

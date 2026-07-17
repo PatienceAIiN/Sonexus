@@ -19,7 +19,13 @@ import java.net.URL
  */
 class ModelStore(context: Context, private val appVersion: Int = 1) {
 
-    companion object { private const val TAG = "SonexModels" }
+    companion object {
+        private const val TAG = "SonexModels"
+        /** Live OTA status for the UI (in-app banner + notification):
+         *  stage text (null = idle) and 0..1 download progress (null = indeterminate). */
+        val syncStatus = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        val syncProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+    }
 
     private val dir = File(context.filesDir, "models").apply { mkdirs() }
     private val manifestFile = File(dir, "manifest.json")
@@ -62,20 +68,33 @@ class ModelStore(context: Context, private val appVersion: Int = 1) {
 
             val updated = mutableListOf<String>()
             val mergedModels = (local?.models ?: emptyMap()).toMutableMap()
-            for ((kind, entry) in remote.models) {
-                if (!Manifests.usable(entry, appVersion)) continue
-                val current = local?.models?.get(kind)
-                if (current != null && !Manifests.isNewer(entry.version, current.version)) continue
-                if (downloadVerified(baseUrl, deviceKey, entry)) {
-                    mergedModels[kind] = entry
-                    verified.remove(entry.file)
-                    updated += kind
+            try {
+                for ((kind, entry) in remote.models) {
+                    if (!Manifests.usable(entry, appVersion)) continue
+                    val current = local?.models?.get(kind)
+                    if (current != null && !Manifests.isNewer(entry.version, current.version)) continue
+                    // A real download is starting — surface live status to the UI.
+                    syncStatus.value = "Downloading smart detection…"
+                    syncProgress.value = 0f
+                    if (downloadVerified(baseUrl, deviceKey, entry)) {
+                        mergedModels[kind] = entry
+                        verified.remove(entry.file)
+                        updated += kind
+                    }
                 }
-            }
-            if (updated.isNotEmpty()) {
-                // Persist the merged manifest only after every file is in place.
-                manifestFile.writeText(encodeManifest(ModelManifest(mergedModels, remote.thresholds)))
-                Log.i(TAG, "OTA updated models: $updated")
+                if (updated.isNotEmpty()) {
+                    syncStatus.value = "Configuring…"
+                    syncProgress.value = null
+                    // Persist the merged manifest only after every file is in place.
+                    manifestFile.writeText(encodeManifest(ModelManifest(mergedModels, remote.thresholds)))
+                    Log.i(TAG, "OTA updated models: $updated")
+                    syncStatus.value = "Smart detection ready ✓"
+                    syncProgress.value = 1f
+                    kotlinx.coroutines.delay(3000)
+                }
+            } finally {
+                syncStatus.value = null
+                syncProgress.value = null
             }
             updated
         }
@@ -83,7 +102,7 @@ class ModelStore(context: Context, private val appVersion: Int = 1) {
     private fun downloadVerified(baseUrl: String, deviceKey: String, entry: ModelEntry): Boolean {
         val url = if (entry.url.startsWith("http")) entry.url else baseUrl + entry.url
         return runCatching {
-            val bytes = httpGet(url, deviceKey)
+            val bytes = httpGetProgress(url, deviceKey) { p -> syncProgress.value = p }
             if (!Manifests.verify(entry, bytes)) {
                 Log.w(TAG, "Downloaded ${entry.file} failed checksum — keeping last-known-good")
                 return false
@@ -101,6 +120,28 @@ class ModelStore(context: Context, private val appVersion: Int = 1) {
         try {
             if (conn.responseCode != 200) error("HTTP ${conn.responseCode} for $url")
             return conn.inputStream.use { it.readBytes() }
+        } finally { conn.disconnect() }
+    }
+
+    /** Streaming download that reports 0..1 progress from Content-Length. */
+    private fun httpGetProgress(url: String, deviceKey: String, onProgress: (Float) -> Unit): ByteArray {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 10_000; conn.readTimeout = 30_000
+        conn.setRequestProperty("X-Device-Key", deviceKey)
+        try {
+            if (conn.responseCode != 200) error("HTTP ${conn.responseCode} for $url")
+            val total = conn.contentLengthLong
+            conn.inputStream.use { input ->
+                val out = java.io.ByteArrayOutputStream(if (total > 0) total.toInt() else 1 shl 20)
+                val buf = ByteArray(16 * 1024)
+                var read = 0L
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    out.write(buf, 0, n); read += n
+                    if (total > 0) onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+                }
+                return out.toByteArray()
+            }
         } finally { conn.disconnect() }
     }
 
