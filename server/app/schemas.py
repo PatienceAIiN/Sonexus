@@ -47,7 +47,7 @@ class ClipMeta(BaseModel):
 
 
 class ConsentIn(BaseModel):
-    purpose: Literal["upload_clips", "telemetry", "training", "wake_word"]
+    purpose: Literal["upload_clips", "telemetry", "training", "wake_word", "store_on_server"]
     granted: bool
 
 
