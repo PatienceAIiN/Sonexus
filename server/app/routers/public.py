@@ -32,6 +32,14 @@ def _base(request: Request) -> str:
     return f"{scheme}://{host}"
 
 
+def _release_store():
+    """APKs + manifest live on R2 only — Cloudinary rejects .apk uploads and its
+    CDN serves a stale manifest after overwrites. So read the app-update path
+    straight from R2 (the failover fallback), not through Cloudinary."""
+    st = get_storage()
+    return getattr(st, "fallback", st)
+
+
 def _releases() -> dict:
     from .. import cache
 
@@ -39,7 +47,7 @@ def _releases() -> dict:
     if hit is not None:
         return hit
     try:
-        data = get_storage().get(RELEASES_KEY)
+        data = _release_store().get(RELEASES_KEY)
         return cache.put("releases", json.loads(data), ttl_sec=30)
     except Exception:
         raise HTTPException(status_code=404, detail="No releases published yet")
@@ -52,7 +60,7 @@ def _signed_url(key: str) -> str:
     hit = cache.get(f"url:{key}")
     if hit is not None:
         return hit
-    return cache.put(f"url:{key}", get_storage().url(key), ttl_sec=1800)
+    return cache.put(f"url:{key}", _release_store().url(key), ttl_sec=1800)
 
 
 @router.get("/v1/app/releases")
