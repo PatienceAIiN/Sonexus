@@ -2,5 +2,5 @@
     <string name="app_name">SoNex</string>
     <!-- Google Sign-In WEB OAuth client ID (public value). Used to request an ID
          token the SoNex server can verify. Empty = the button is hidden. -->
-    <string name="google_web_client_id">946282223370-r47810qeto2i6dls8rlbd1hs2bpidikl.apps.googleusercontent.com</string>
+    <string name="google_web_client_id">946282223370-i4jo16e89p6vj7n679qpv2i7enq5pje8.apps.googleusercontent.com</string>
 </resources>

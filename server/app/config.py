@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Google Sign-In: the WEB OAuth client ID. Google ID tokens (even from the
     # Android app) carry this as their audience, so it's what we verify against.
     # Public value (not a secret); GOOGLE_CLIENT_ID env var overrides if needed.
-    google_client_id: str = "946282223370-r47810qeto2i6dls8rlbd1hs2bpidikl.apps.googleusercontent.com"
+    google_client_id: str = "946282223370-i4jo16e89p6vj7n679qpv2i7enq5pje8.apps.googleusercontent.com"
     site_url: str = ""  # e.g. https://sonex.patienceai.in — overrides host detection
 
     # Rate limiting (requests per window seconds, per device/user)

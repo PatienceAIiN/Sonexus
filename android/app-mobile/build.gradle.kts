@@ -11,8 +11,8 @@ android {
         applicationId = "com.sonex.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 42
-        versionName = "5.2"
+        versionCode = 43
+        versionName = "5.3"
     }
     buildFeatures { compose = true }
     compileOptions {
