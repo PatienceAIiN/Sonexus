@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 /**
  * TV UI: a dark, cinematic pairing screen — big glowing code tiles, a slow
@@ -50,10 +51,14 @@ class TvActivity : ComponentActivity() {
             var code by remember { mutableStateOf("----") }
             var status by remember { mutableStateOf("Waiting for your phone…") }
             val paired = status.contains("paired", true) || status.contains("connected", true)
+            var update by remember { mutableStateOf<TvUpdater.Release?>(null) }
+            var updateProgress by remember { mutableStateOf<Float?>(null) }
+            var updateError by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(Unit) {
                 server = TvServer(this@TvActivity, onCode = { code = it }, onStatus = { status = it })
                 server.start()
+                update = TvUpdater.check(this@TvActivity)
             }
 
             MaterialTheme(colorScheme = darkColorScheme(primary = Violet)) {
@@ -102,6 +107,36 @@ class TvActivity : ComponentActivity() {
                         // If the phone can't auto-find the TV, type this IP in the app.
                         Text("Same Wi-Fi · TV IP  ${remember { localIp() }}",
                             fontSize = 16.sp, color = Color(0xFF6B647F))
+
+                        // ---- In-app update (remote-clickable) ----
+                        update?.let { u ->
+                            val scope = rememberCoroutineScope()
+                            Spacer(Modifier.height(28.dp))
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    if (updateProgress == null) scope.launch {
+                                        updateProgress = 0f
+                                        updateError = TvUpdater.downloadAndInstall(
+                                            this@TvActivity, u) { p -> updateProgress = p }
+                                        updateProgress = null
+                                    }
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Violet)
+                            ) {
+                                Text(
+                                    when {
+                                        updateProgress != null ->
+                                            "Downloading… ${(updateProgress!! * 100).toInt()}%"
+                                        else -> "Update to v${u.version_name} — press OK"
+                                    },
+                                    fontSize = 18.sp, color = Color.White
+                                )
+                            }
+                            updateError?.let {
+                                Spacer(Modifier.height(8.dp))
+                                Text(it, fontSize = 14.sp, color = Color(0xFFFF5C7A))
+                            }
+                        }
                     }
                 }
             }
