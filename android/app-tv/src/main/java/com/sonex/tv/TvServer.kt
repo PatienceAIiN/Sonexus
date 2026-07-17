@@ -100,7 +100,7 @@ class TvServer(
     /** Cloud relay: lets SoNex Web pair + control this TV from anywhere.
      *  Registers the same 4-digit code, then polls for queued commands. */
     private suspend fun cloudRelay() {
-        val base = "https://sonexus.onrender.com"
+        val base = "https://sonex.patienceai.in"
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         var tvKey: String? = null
         while (true) {

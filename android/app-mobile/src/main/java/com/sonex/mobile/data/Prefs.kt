@@ -117,7 +117,7 @@ object Prefs {
     // ---- Server link (Phase 3/4: events, consented clips, OTA models) ----
 
     /** SoNex cloud. Overridable in Settings; empty string there = offline mode. */
-    const val DEFAULT_SERVER = "https://sonexus.onrender.com"
+    const val DEFAULT_SERVER = "https://sonex.patienceai.in"
 
     fun serverUrl(c: Context): String? =
         sp(c).getString("server_url", DEFAULT_SERVER)?.ifBlank { null }

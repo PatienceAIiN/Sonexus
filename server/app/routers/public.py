@@ -478,14 +478,14 @@ __GSV__
     <a class="ddi" href="/download/mobile" style="margin-bottom:8px;">
       <div>
         <div style="font-weight:600;">Android Phone / Mobile</div>
-        <div style="font-size:0.8rem; color:var(--sub);">Handheld devices (v5.3)</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Handheld devices (v5.4)</div>
       </div>
       <span class="tag">Universal APK</span>
     </a>
     <a class="ddi" href="/download/tv" style="margin-bottom:16px;">
       <div>
         <div style="font-weight:600;">Android TV</div>
-        <div style="font-size:0.8rem; color:var(--sub);">Smart TVs & Streaming Sticks (v5.3)</div>
+        <div style="font-size:0.8rem; color:var(--sub);">Smart TVs & Streaming Sticks (v5.4)</div>
       </div>
       <span class="tag">TV APK</span>
     </a>
@@ -860,6 +860,7 @@ async def sitemap(request: Request):
 
 
 CHANGELOG = [
+    ("5.4", "SoNex has a new home: the apps now talk to sonex.patienceai.in (our faster, dedicated server). Update to this version to keep sync, sign-in and future updates working."),
     ("5.3", "Sign in with Google now works. Fixed the settings toggle that showed 'value wasn't accepted'."),
     ("5.2", "Deleting your account now truly deletes it. 'Delete my data' removes your account and data from SoNex's servers — not just your phone — so you can no longer log back in with it. Smaller reliability fixes too."),
     ("5.1", "A fresh, modern look and smoother everything. SoNex now has a dark, animated 'studio' design across the phone and TV apps — a live waveform that moves with your room, rounded iOS-style cards and buttons, and a new app icon. Added Sign in with Google. Pairing your TV is more reliable: if your Wi-Fi blocks auto-discovery, the TV now shows its IP so you can connect directly. Plus fixes to dark-mode text and settings toggles."),

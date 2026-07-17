@@ -17,7 +17,7 @@ import java.net.URL
  * the system installer — same flow as the phone app.
  */
 object TvUpdater {
-    private const val SERVER = "https://sonexus.onrender.com"
+    private const val SERVER = "https://sonex.patienceai.in"
 
     @Serializable
     data class Release(val version_code: Int, val version_name: String = "", val url: String)
