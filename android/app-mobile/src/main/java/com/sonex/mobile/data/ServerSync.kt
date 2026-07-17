@@ -224,6 +224,23 @@ object ServerSync {
         }
     }
 
+    /** Permanently delete the account on the server so re-login is impossible.
+     *  True when the account is gone (2xx, or 401 = token already invalid). No
+     *  session/URL -> nothing to delete (true). */
+    suspend fun deleteAccount(c: Context): Boolean = withContext(Dispatchers.IO) {
+        val base = (Prefs.serverUrl(c) ?: "").removeSuffix("/")
+        val tok = Prefs.authToken(c) ?: return@withContext true
+        if (base.isBlank()) return@withContext false
+        runCatching {
+            val conn = URL("$base/v1/account").openConnection() as HttpURLConnection
+            conn.connectTimeout = 8_000; conn.readTimeout = 8_000
+            conn.requestMethod = "DELETE"
+            conn.setRequestProperty("Authorization", "Bearer $tok")
+            try { conn.responseCode.let { it in 200..299 || it == 401 } }
+            finally { conn.disconnect() }
+        }.getOrDefault(false)
+    }
+
     private fun http(
         url: String, method: String, body: String,
         headers: Map<String, String> = emptyMap()

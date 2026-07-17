@@ -11,7 +11,7 @@ from ..db import get_db
 from ..emailer import otp_html, send_email
 from ..models import Device, Home, OtpCode, User
 from ..schemas import DeviceRegisterIn, DeviceRegisterOut, LoginIn, TokenOut
-from ..security import create_access_token, hash_api_key, hash_password, verify_password
+from ..security import create_access_token, get_current_user, hash_api_key, hash_password, verify_password
 
 router = APIRouter(tags=["auth"])
 
@@ -97,6 +97,22 @@ async def verify(body: OtpVerifyIn, db: AsyncSession = Depends(get_db)):
     user.is_verified = True
     await db.commit()
     return TokenOut(access_token=create_access_token(user.id, user.token_version))
+
+
+@router.delete("/account")
+async def delete_account(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete the signed-in user's account from the database, so they
+    can no longer log in. Removes their labels and any pending codes first to
+    satisfy foreign keys. Device/clip data is anonymous (not user-keyed)."""
+    from ..models import Label
+    await db.execute(delete(Label).where(Label.user_id == user.id))
+    await db.execute(delete(OtpCode).where(OtpCode.email == user.email))
+    await db.delete(user)
+    await db.commit()
+    return {"detail": "Account deleted"}
 
 
 class GoogleAuthIn(BaseModel):

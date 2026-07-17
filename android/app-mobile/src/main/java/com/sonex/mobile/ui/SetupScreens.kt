@@ -433,13 +433,16 @@ fun SettingsScreen(onBack: () -> Unit, onDataDeleted: () -> Unit, onLoggedOut: (
             if (confirmDelete) {
                 AlertDialog(
                     onDismissRequest = { confirmDelete = false },
-                    title = { Text("Delete all data?") },
-                    text = { Text("Removes your account, TV pairing, calibration and consents from this phone.") },
+                    title = { Text("Delete account & data?") },
+                    text = { Text("Permanently deletes your account and data from SoNex's servers — you won't be able to log back in. Also wipes this phone.") },
                     confirmButton = {
                         TextButton(onClick = {
                             confirmDelete = false
-                            Prefs.clearAll(ctx)
-                            onDataDeleted()
+                            scope.launch {
+                                ServerSync.deleteAccount(ctx)   // remove account from the DB
+                                Prefs.clearAll(ctx)             // then wipe local
+                                onDataDeleted()
+                            }
                         }) { Text("Delete") }
                     },
                     dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } }
