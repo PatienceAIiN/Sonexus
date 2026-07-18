@@ -1,0 +1,27 @@
+name: Deploy to VM
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency: { group: deploy-sonexus, cancel-in-progress: true }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Build portal
+        run: cd portal && npm ci --no-audit --no-fund && VITE_API_URL=https://sonex.patienceai.in npx vite build --base=/portal/
+      - name: SSH setup
+        run: |
+          mkdir -p ~/.ssh && echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Deploy server + portal
+        env:
+          H: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
+        run: |
+          rsync -az --exclude='.env' --exclude='.venv' --exclude='__pycache__' --exclude='data' \
+            -e "ssh -i ~/.ssh/k" server/ "$H:/home/harsh/products/Sonexus/server/"
+          rsync -az -e "ssh -i ~/.ssh/k" portal/dist/ "$H:/tmp/sonex-portal/"
+          ssh -i ~/.ssh/k "$H" 'cd /home/harsh/products/Sonexus/server && .venv/bin/pip install -q -r requirements.txt && .venv/bin/alembic upgrade head && sudo rsync -a --delete /tmp/sonex-portal/ /var/www/sonex-portal/ && sudo chown -R www-data:www-data /var/www/sonex-portal && sudo systemctl restart sonexus'
